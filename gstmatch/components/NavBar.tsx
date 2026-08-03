@@ -48,7 +48,7 @@ export default function NavBar() {
         <img
           src="/logo.png"
           alt="GSTMatch logo"
-          style={{ height: 36, width: 'auto', objectFit: 'contain' }}
+          style={{ height: 40, width: 'auto', objectFit: 'contain' }}
         />
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
           <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1 }}>
