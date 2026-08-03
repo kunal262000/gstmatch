@@ -52,7 +52,7 @@ export default function LandingPage() {
           </div>
 
           <h1 style={{
-            fontSize: 36, fontWeight: 800, color: 'var(--text-1)',
+            fontSize: 'var(--fs-h1)', fontWeight: 800, color: 'var(--text-1)',
             lineHeight: 1.25, marginBottom: 14,
           }}>
             Stop losing tax credit{' '}
@@ -118,7 +118,7 @@ export default function LandingPage() {
         <div className="neu-raised" style={{
           padding: '32px 28px', textAlign: 'center', background: 'var(--neu-bg)',
         }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-1)', marginBottom: 8 }}>
+          <div style={{ fontSize: 'var(--fs-h2)', fontWeight: 700, color: 'var(--text-1)', marginBottom: 8 }}>
             Start free today
           </div>
           <div style={{ fontSize: 14, color: 'var(--text-2)', marginBottom: 24 }}>

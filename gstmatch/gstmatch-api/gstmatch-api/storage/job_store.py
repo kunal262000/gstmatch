@@ -1,125 +1,173 @@
 """
-Job store with Supabase persistence and in-memory fallback.
+Reconciliation job store.
 
-Uses the Supabase REST API (PostgREST) to persist reconciliation results
-in the `reconciliation_results` table.  If the Supabase URL or service role
-key are not configured (or contain placeholder values), the store gracefully
-falls back to an in-memory dictionary so local development keeps working.
+Persists results to Supabase (Postgres via the REST API) using httpx, keyed by
+the optional Supabase URL / service-role key.
+
+If Supabase env vars are missing (dev/local demo), it gracefully falls back to
+in-memory dictionaries so reconciliation keeps working with no dependencies.
+
+Important: env vars are read lazily inside each call (not at import time) because
+main.py imports routes before it calls load_dotenv(); reading at import time would
+see empty values when running against a local .env file.
 """
 import os
+import logging
 from typing import Dict, Optional
 
 import httpx
 
 from models.schemas import ReconciliationResult
 
-# ── In-memory fallback store ──────────────────────────────────────────────────
+logger = logging.getLogger(__name__)
+
+TABLE = "reconciliation_results"
+USERS_TABLE = "users"
+
+# In-memory fallback stores
 _store: Dict[str, ReconciliationResult] = {}
-
-# ── Supabase configuration ─────────────────────────────────────────────────────
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-
-SUPABASE_CONFIGURED = bool(
-    SUPABASE_URL
-    and SUPABASE_KEY
-    and "your-project" not in SUPABASE_URL
-    and "your_service_role_key" not in SUPABASE_KEY
-)
-
-_TABLE = "reconciliation_results"
-_REST_URL = f"{SUPABASE_URL}/rest/v1/{_TABLE}" if SUPABASE_CONFIGURED else ""
+_store_meta: Dict[str, dict] = {}  # job_id -> {user_id, period, gstin}
 
 
-def _headers() -> dict:
-    """Return the headers required by the Supabase REST API."""
+def _supabase_config() -> tuple[str, str]:
+    """Return (supabase_url, service_key) re-read from env each call."""
+    url = os.getenv("SUPABASE_URL", "").strip()
+    key = (os.getenv("SUPABASE_SERVICE_ROLE_KEY", "") or os.getenv("SUPABASE_ANON_KEY", "")).strip()
+    return url, key
+
+
+def _enabled() -> bool:
+    url, key = _supabase_config()
+    return bool(url and key and "your-project" not in url)
+
+
+def _auth_headers(key: str) -> dict:
     return {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
     }
 
 
-# ── Public API ─────────────────────────────────────────────────────────────────
-def save(job_id: str, result: ReconciliationResult, user_id: str = "") -> None:
-    """Persist a reconciliation result.
+def _row_to_result(row: dict) -> Optional[ReconciliationResult]:
+    """Extract the ReconciliationResult from a stored row (JSONB in `data`)."""
+    data = row.get("data")
+    if not data:
+        return None
+    try:
+        return ReconciliationResult.model_validate(data)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Could not parse reconciliation result row: %s", e)
+        return None
 
-    Saves to Supabase when configured, otherwise falls back to the in-memory
-    dict.  Any Supabase error is logged and the result is also kept in memory
-    so the caller can still retrieve it immediately.
-    """
-    # Always keep an in-memory copy as a safety net
+
+def save(job_id: str, result: ReconciliationResult, user_id: Optional[str] = None) -> None:
+    """Persist a reconciliation result, tagged with the owning user id."""
+    # Always keep an in-memory copy (acts as cache + offline fallback)
     _store[job_id] = result
-
-    if not SUPABASE_CONFIGURED:
-        return
-
-    payload = {
-        "id": job_id,
-        "user_id": user_id or None,
+    _store_meta[job_id] = {
+        "user_id": user_id,
         "period": result.period,
         "gstin": result.gstin,
-        "data": result.model_dump(),
     }
 
+    if not _enabled():
+        return
+
+    url, key = _supabase_config()
+    payload = {
+        "id": job_id,
+        "user_id": user_id,
+        "period": result.period,
+        "gstin": result.gstin,
+        "data": result.model_dump(mode="json"),
+    }
     try:
-        resp = httpx.post(
-            _REST_URL,
-            headers={**_headers(), "Prefer": "resolution=merge-duplicates"},
-            json=payload,
-            timeout=30.0,
-        )
-        if resp.status_code not in (200, 201):
-            print(
-                f"[job_store] Supabase save failed: "
-                f"{resp.status_code} {resp.text}"
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.post(
+                f"{url}/rest/v1/{TABLE}",
+                headers=_auth_headers(key),
+                json=payload,
             )
-    except Exception as exc:
-        print(f"[job_store] Supabase save error: {exc}")
+            if resp.status_code not in (200, 201):
+                logger.warning("Supabase save failed (%s): %s", resp.status_code, resp.text[:200])
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Supabase save error: %s", e)
 
 
 def get(job_id: str) -> Optional[ReconciliationResult]:
-    """Retrieve a reconciliation result by job ID.
+    """Return a stored result, checking memory first then Supabase."""
+    if job_id in _store:
+        return _store[job_id]
 
-    Queries Supabase when configured, otherwise reads from the in-memory dict.
-    On Supabase failure the in-memory copy is returned as a fallback.
-    """
-    if not SUPABASE_CONFIGURED:
-        return _store.get(job_id)
-
-    try:
-        resp = httpx.get(
-            f"{_REST_URL}?id=eq.{job_id}",
-            headers=_headers(),
-            timeout=30.0,
-        )
-        if resp.status_code == 200:
-            rows = resp.json()
-            if rows:
-                data = rows[0].get("data")
-                if data:
-                    return ReconciliationResult(**data)
+    if not _enabled():
         return None
-    except Exception as exc:
-        print(f"[job_store] Supabase get error: {exc}")
-        return _store.get(job_id)
+
+    url, key = _supabase_config()
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.get(
+                f"{url}/rest/v1/{TABLE}",
+                headers=_auth_headers(key),
+                params={"id": f"eq.{job_id}", "select": "data"},
+            )
+            if resp.status_code == 200 and resp.json():
+                return _row_to_result(resp.json()[0])
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Supabase get error: %s", e)
+
+    return None
 
 
 def exists(job_id: str) -> bool:
-    """Check whether a job ID exists in the store."""
-    if not SUPABASE_CONFIGURED:
-        return job_id in _store
+    if job_id in _store:
+        return True
+    return get(job_id) is not None
 
-    try:
-        resp = httpx.get(
-            f"{_REST_URL}?id=eq.{job_id}&select=id",
-            headers=_headers(),
-            timeout=30.0,
-        )
-        if resp.status_code == 200:
-            rows = resp.json()
-            return bool(rows)
-        return False
-    except Exception as exc:
-        print(f"[job_store] Supabase exists error: {exc}")
-        return job_id in _store
+
+def count_for_user(user_id: str) -> int:
+    """Count reconciliation results belonging to a user (free-tier limiting)."""
+    if not user_id:
+        return 0
+
+    if _enabled():
+        url, key = _supabase_config()
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                resp = client.get(
+                    f"{url}/rest/v1/{TABLE}",
+                    headers={**_auth_headers(key), "Prefer": "count=exact"},
+                    params={"user_id": f"eq.{user_id}", "select": "id"},
+                )
+                if resp.status_code == 200:
+                    content_range = resp.headers.get("content-range", "")
+                    if "/" in content_range:
+                        return max(int(content_range.rsplit("/", 1)[1]), 0)
+                    return len(resp.json())
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Supabase count error: %s", e)
+
+    # Offline / fallback count
+    return sum(1 for m in _store_meta.values() if m.get("user_id") == user_id)
+
+
+def get_plan(user_id: str) -> str:
+    """Return the user's plan ('free' when unknown or in offline mode)."""
+    if not user_id:
+        return "free"
+
+    if _enabled():
+        url, key = _supabase_config()
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                resp = client.get(
+                    f"{url}/rest/v1/{USERS_TABLE}",
+                    headers=_auth_headers(key),
+                    params={"id": f"eq.{user_id}", "select": "plan"},
+                )
+                if resp.status_code == 200 and resp.json():
+                    return resp.json()[0].get("plan", "free") or "free"
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Supabase get_plan error: %s", e)
+
+    return "free"

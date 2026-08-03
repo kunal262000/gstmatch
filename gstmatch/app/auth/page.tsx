@@ -128,7 +128,7 @@ export default function AuthPage() {
               </button>
             </div>
 
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', marginBottom: 24, textAlign: 'center' }}>
+            <h2 style={{ fontSize: 'var(--fs-h2)', fontWeight: 700, color: 'var(--text-1)', marginBottom: 24, textAlign: 'center' }}>
               {isSignUp ? 'Create your account' : 'Welcome back'}
             </h2>
 

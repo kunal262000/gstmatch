@@ -186,7 +186,7 @@ Supplier Summary:
       <main className="page-container">
         {/* Header */}
         <div style={{ marginBottom: 20 }}>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)' }}>
+          <h1 style={{ fontSize: 'var(--fs-h2)', fontWeight: 700, color: 'var(--text-1)' }}>
             Reconciliation results
           </h1>
           <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 3 }}>

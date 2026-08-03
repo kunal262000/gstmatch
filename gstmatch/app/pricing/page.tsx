@@ -156,7 +156,7 @@ export default function PricingPage() {
       <main className="page-container">
         {/* Header */}
         <section style={{ textAlign: 'center', padding: '30px 0 20px' }}>
-          <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--text-1)', marginBottom: 12 }}>
+          <h1 style={{ fontSize: 'var(--fs-h1)', fontWeight: 800, color: 'var(--text-1)', marginBottom: 12 }}>
             Simple, transparent pricing
           </h1>
           <p style={{ fontSize: 15, color: 'var(--text-2)', maxWidth: 460, margin: '0 auto' }}>

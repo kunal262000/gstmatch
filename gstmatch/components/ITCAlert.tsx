@@ -16,7 +16,7 @@ export default function ITCAlert({
       textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
     }}>
       {/* Large Amount */}
-      <div style={{ fontSize: 38, fontWeight: 900, color: 'var(--danger)', marginBottom: 8, letterSpacing: '-0.02em' }}>
+      <div style={{ fontSize: 'var(--fs-display)', fontWeight: 900, color: 'var(--danger)', marginBottom: 8, letterSpacing: '-0.02em' }}>
         {formatted}
       </div>
       
