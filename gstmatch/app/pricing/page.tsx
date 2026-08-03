@@ -86,7 +86,7 @@ export default function PricingPage() {
     setLoadingPlan(planName)
 
     try {
-      const response = await fetch('/app/api/cashfree/session', {
+      const response = await fetch('/api/cashfree/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -105,7 +105,7 @@ export default function PricingPage() {
 
       if (data.mock) {
         // Trigger mock payment confirmation call
-        const webhookResponse = await fetch('/app/api/cashfree/webhook', {
+        const webhookResponse = await fetch('/api/cashfree/webhook', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

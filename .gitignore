@@ -33,3 +33,4 @@ demo-downloads/
 
 # Logs
 *.log
+*.err

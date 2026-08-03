@@ -45,17 +45,11 @@ export default function NavBar() {
     }}>
       {/* Logo */}
       <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 10,
-          background: 'linear-gradient(145deg, #12c98c, #0da876)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '3px 3px 8px #0a9060',
-        }}>
-          <svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              stroke="white" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
+        <img
+          src="/logo.png"
+          alt="GSTMatch logo"
+          style={{ height: 40, width: 'auto', maxWidth: 150, objectFit: 'contain' }}
+        />
         <div>
           <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--text-1)' }}>GSTMatch</div>
           <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Reconciliation made simple</div>
