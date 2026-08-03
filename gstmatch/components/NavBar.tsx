@@ -44,15 +44,26 @@ export default function NavBar() {
       position: 'sticky', top: 0, zIndex: 50,
     }}>
       {/* Logo */}
-      <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
         <img
           src="/logo.png"
           alt="GSTMatch logo"
-          style={{ height: 40, width: 'auto', maxWidth: 150, objectFit: 'contain' }}
+          style={{ height: 36, width: 'auto', objectFit: 'contain' }}
         />
-        <div>
-          <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--text-1)' }}>GSTMatch</div>
-          <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Reconciliation made simple</div>
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1 }}>
+            <span style={{ color: '#0B1F5E' }}>GST</span>
+            <span style={{
+              background: 'linear-gradient(120deg, #3F5BFF, #4D6BFF)',
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              color: 'transparent',
+            }}>Match</span>
+          </div>
+          <div style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', marginTop: 3 }}>
+            Reconcile<span style={{ color: '#22C55E' }}> ·</span> Recover<span style={{ color: '#22C55E' }}> ·</span> Maximize <span>ITC</span>.
+          </div>
         </div>
       </Link>
 

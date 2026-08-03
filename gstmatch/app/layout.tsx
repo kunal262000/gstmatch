@@ -1,5 +1,12 @@
 import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
 import '../styles/neu.css'
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  weight: ['400', '500', '600', '700', '800'],
+})
 
 export const metadata: Metadata = {
   title: 'GSTMatch — GST Reconciliation Made Simple',
@@ -9,7 +16,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body style={{ background: 'var(--neu-bg)', minHeight: '100vh' }}>
+      <body className={inter.className} style={{ background: 'var(--neu-mid)', minHeight: '100vh' }}>
         {children}
       </body>
     </html>
