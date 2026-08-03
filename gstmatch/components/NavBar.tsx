@@ -51,7 +51,7 @@ export default function NavBar() {
           style={{ height: 36, width: 'auto', objectFit: 'contain' }}
         />
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1 }}>
+          <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1 }}>
             <span style={{ color: '#0B1F5E' }}>GST</span>
             <span style={{
               background: 'linear-gradient(120deg, #3F5BFF, #4D6BFF)',
