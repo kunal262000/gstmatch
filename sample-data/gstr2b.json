@@ -1,0 +1,197 @@
+{
+    "data": {
+        "docdata": {
+            "b2b": [
+                {
+                    "ctin": "27AAACG1234F1Z5",
+                    "tradeName": "Reliance Industries",
+                    "inv": [
+                        {
+                            "inum": "INV-1001",
+                            "idt": "2025-06-02",
+                            "val": 118000,
+                            "itms": [
+                                {
+                                    "itm_det": {
+                                        "txval": 100000,
+                                        "igst": 0,
+                                        "cgst": 9000,
+                                        "sgst": 9000
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "ctin": "27AAACH5678B1Z2",
+                    "tradeName": "Tata Steel Limited",
+                    "inv": [
+                        {
+                            "inum": "INV-1002",
+                            "idt": "2025-06-03",
+                            "val": 59000,
+                            "itms": [
+                                {
+                                    "itm_det": {
+                                        "txval": 50000,
+                                        "igst": 0,
+                                        "cgst": 4500,
+                                        "sgst": 4500
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "ctin": "07AAACI2345D1Z6",
+                    "tradeName": "Infosys Limited",
+                    "inv": [
+                        {
+                            "inum": "INV-1003",
+                            "idt": "2025-06-05",
+                            "val": 295000,
+                            "itms": [
+                                {
+                                    "itm_det": {
+                                        "txval": 250000,
+                                        "igst": 45000,
+                                        "cgst": 0,
+                                        "sgst": 0
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "ctin": "27AAACJ8765E1Z3",
+                    "tradeName": "Bharat Petroleum",
+                    "inv": [
+                        {
+                            "inum": "INV-1004",
+                            "idt": "2025-06-08",
+                            "val": 88500,
+                            "itms": [
+                                {
+                                    "itm_det": {
+                                        "txval": 75000,
+                                        "igst": 0,
+                                        "cgst": 6750,
+                                        "sgst": 6750
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "ctin": "07AAACL9876G1Z1",
+                    "tradeName": "Wipro Limited",
+                    "inv": [
+                        {
+                            "inum": "INV-1006",
+                            "idt": "2025-06-12",
+                            "val": 377600,
+                            "itms": [
+                                {
+                                    "itm_det": {
+                                        "txval": 320000,
+                                        "igst": 57600,
+                                        "cgst": 0,
+                                        "sgst": 0
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "ctin": "27AAACM2468H1Z7",
+                    "tradeName": "Maruti Suzuki",
+                    "inv": [
+                        {
+                            "inum": "INV-1007",
+                            "idt": "2025-06-15",
+                            "val": 531000,
+                            "itms": [
+                                {
+                                    "itm_det": {
+                                        "txval": 450000,
+                                        "igst": 0,
+                                        "cgst": 40500,
+                                        "sgst": 40500
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "ctin": "27AAACP7531K1Z1",
+                    "tradeName": "Godrej Industries",
+                    "inv": [
+                        {
+                            "inum": "INV-1010",
+                            "idt": "2025-06-22",
+                            "val": 75520,
+                            "itms": [
+                                {
+                                    "itm_det": {
+                                        "txval": 64000,
+                                        "igst": 0,
+                                        "cgst": 5760,
+                                        "sgst": 5760
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "ctin": "07AAACX9999H1Z3",
+                    "tradeName": "HDFC Bank Ltd",
+                    "inv": [
+                        {
+                            "inum": "INV-2001",
+                            "idt": "2025-06-14",
+                            "val": 45000,
+                            "itms": [
+                                {
+                                    "itm_det": {
+                                        "txval": 38000,
+                                        "igst": 0,
+                                        "cgst": 3600,
+                                        "sgst": 3600
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "ctin": "07AAACY7777A1Z5",
+                    "tradeName": "ICICI Bank Ltd",
+                    "inv": [
+                        {
+                            "inum": "INV-2002",
+                            "idt": "2025-06-17",
+                            "val": 67000,
+                            "itms": [
+                                {
+                                    "itm_det": {
+                                        "txval": 57000,
+                                        "igst": 0,
+                                        "cgst": 5400,
+                                        "sgst": 5400
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

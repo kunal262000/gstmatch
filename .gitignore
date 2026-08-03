@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+gstmatch/node_modules/
+
+# Next.js build output
+gstmatch/.next/
+gstmatch/out/
+
+# Environment variables (never commit real keys!)
+gstmatch/.env.local
+gstmatch/.env
+gstmatch/gstmatch-api/gstmatch-api/.env
+
+# Python
+__pycache__/
+*.pyc
+gstmatch/gstmatch-api/gstmatch-api/__pycache__/
+gstmatch/gstmatch-api/gstmatch-api/**/__pycache__/
+
+# Vercel
+.vercel
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Demo downloads
+demo-downloads/
+
+# Logs
+*.log
