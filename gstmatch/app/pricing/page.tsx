@@ -217,7 +217,7 @@ export default function PricingPage() {
         )}
 
         {/* Pricing Cards Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginTop: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px,1fr))', gap: 24, marginTop: 12 }}>
           {PLANS.map((p) => {
             const isCurrent = currentPlan === p.name.toLowerCase()
             const isPopular = p.name === 'Starter'

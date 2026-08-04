@@ -77,7 +77,13 @@ export default function ResultsPage() {
           animation: 'spin 0.8s linear infinite',
         }} />
         <div style={{ fontSize: 14, color: 'var(--text-2)' }}>Loading your results…</div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+        <div style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px,1fr))', gap: 12 }}>
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} style={{ height: 92, borderRadius: 'var(--r-md)', background: 'var(--neu-bg)', border: '1px solid rgba(200,210,230,0.45)', animation: 'pulse 1.4s ease-in-out infinite' }} />
+          ))}
+        </div>
+        <div style={{ marginTop: 12, height: 190, borderRadius: 'var(--r-md)', background: 'var(--neu-bg)', border: '1px solid rgba(200,210,230,0.45)', animation: 'pulse 1.4s ease-in-out infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } } @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }`}</style>
       </main>
     </>
   )
@@ -204,7 +210,7 @@ Supplier Summary:
         </div>
 
         {/* Metric cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 18 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px,1fr))', gap: 12, marginBottom: 18 }}>
           <MetricCard icon="✅" value={summary.matched}         label="Matched"          color="success" />
           <MetricCard icon="⚠️" value={summary.mismatched}      label="Mismatch"         color="warning" />
           <MetricCard icon="❌" value={summary.missingInGstr2b} label="Missing in GSTR-2B" color="danger" />

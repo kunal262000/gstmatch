@@ -81,7 +81,7 @@ export default function LandingPage() {
         </section>
 
         {/* ── Stats ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, margin: '8px 0 32px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px,1fr))', gap: 16, margin: '8px 0 32px' }}>
           {STATS.map(s => (
             <div key={s.label} className="neu-raised" style={{
               padding: '22px 16px', textAlign: 'center', background: 'var(--neu-bg)',
@@ -93,7 +93,7 @@ export default function LandingPage() {
         </div>
 
         {/* ── Features ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 36 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px,1fr))', gap: 16, marginBottom: 36 }}>
           {FEATURES.map(f => (
             <div key={f.title} className="neu-raised" style={{ padding: '22px', background: 'var(--neu-bg)' }}>
               <div style={{

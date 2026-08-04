@@ -171,7 +171,7 @@ export default function UploadPage() {
         </div>
 
         {/* Period + GSTIN */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px,1fr))', gap: 14, marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, marginBottom: 6 }}>Period</div>
             <select
@@ -221,7 +221,7 @@ export default function UploadPage() {
         </div>
 
         {/* Upload zones */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px,1fr))', gap: 16, marginBottom: 20 }}>
           <UploadZone
             label="Purchase Register"
             sublabel="Drop your Excel or CSV file here"

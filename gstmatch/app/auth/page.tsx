@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import NavBar from '@/components/NavBar'
 import NeuCard from '@/components/ui/NeuCard'
@@ -16,6 +16,24 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  useEffect(() => {
+    // If a session already exists — e.g. returning from the email-verification link,
+    // or already signed in — go straight to the dashboard.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        router.replace('/dashboard')
+      }
+    })
+    // Also catch the moment the email-confirmation / sign-in completes while on
+    // this page (the one-shot getSession above can race the token exchange).
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        router.replace('/dashboard')
+      }
+    })
+    return () => sub.subscription.unsubscribe()
+  }, [router])
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,7 +61,7 @@ export default function AuthPage() {
       } else if (data.user && data.session) {
         setSuccess('Account created successfully! Redirecting...')
         setTimeout(() => {
-          router.push('/')
+          router.push('/dashboard')
         }, 1500)
       } else {
         setSuccess('Verification link sent to email! Please check your inbox.')
@@ -59,7 +77,7 @@ export default function AuthPage() {
       } else {
         setSuccess('Logged in successfully! Redirecting...')
         setTimeout(() => {
-          router.push('/')
+          router.push('/dashboard')
         }, 1000)
       }
     }

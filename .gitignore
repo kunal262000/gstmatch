@@ -34,3 +34,6 @@ demo-downloads/
 # Logs
 *.log
 *.err
+
+# TypeScript incremental build cache
+gstmatch/tsconfig.tsbuildinfo

@@ -9,21 +9,26 @@ import { supabase } from '@/lib/supabase'
 import { ReconciliationResult } from '@/lib/types'
 
 interface DashboardRow {
-    id: string
-    period: string
-    gstin: string
+    id:         string
+    period:     string
+    gstin:      string
     created_at: string
-    data: ReconciliationResult
+    data:       ReconciliationResult
 }
+
+const FREE_RECON_LIMIT = 2
 
 export default function DashboardPage() {
     const router = useRouter()
     const [rows, setRows] = useState<DashboardRow[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
+    const [plan, setPlan] = useState('free')
+    const [reconCount, setReconCount] = useState(0)
 
     useEffect(() => {
         fetchResults()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
 
     const fetchResults = async () => {
@@ -44,6 +49,24 @@ export default function DashboardPage() {
         }
 
         try {
+            // Current plan + free-tier usage
+            const { data: profile } = await supabase
+                .from('users')
+                .select('plan')
+                .eq('id', user.id)
+                .maybeSingle()
+            const currentPlan = (profile?.plan as string) || 'free'
+            setPlan(currentPlan)
+
+            if (currentPlan === 'free') {
+                const { count } = await supabase
+                    .from('reconciliation_results')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+                setReconCount(count ?? 0)
+            }
+
+            // Reconciliation history
             const { data, error: dbErr } = await supabase
                 .from('reconciliation_results')
                 .select('id, period, gstin, created_at, data')
@@ -62,136 +85,152 @@ export default function DashboardPage() {
     const formatDate = (iso: string) => {
         try {
             return new Date(iso).toLocaleDateString('en-IN', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
+                day: '2-digit', month: 'short', year: 'numeric',
+                hour: '2-digit', minute: '2-digit',
             })
         } catch {
             return iso
         }
     }
 
+    const freeUsed   = plan === 'free' ? reconCount : 0
+    const remaining  = Math.max(FREE_RECON_LIMIT - freeUsed, 0)
+    const limitReached = plan === 'free' && freeUsed >= FREE_RECON_LIMIT
+
     return (
         <>
             <NavBar />
             <main className="page-container">
-                <div style={{ marginBottom: 24 }}>
-                    <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-1)' }}>
-                        Reconciliation History
+                {/* Page heading */}
+                <div style={{ marginBottom: 22 }}>
+                    <h1 style={{ fontSize: 'var(--fs-h1)', fontWeight: 800, color: 'var(--text-1)' }}>
+                        Dashboard
                     </h1>
                     <p style={{ fontSize: 14, color: 'var(--text-3)', marginTop: 4 }}>
-                        View and download past reconciliation reports
+                        Your account, plan and reconciliation history
                     </p>
                 </div>
 
-                {loading && (
-                    <NeuCard padding="32px">
-                        <p style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: 14 }}>
-                            Loading...
-                        </p>
-                    </NeuCard>
-                )}
-
-                {error && (
-                    <NeuCard padding="24px">
-                        <div style={{
-                            background: 'var(--danger-bg)',
-                            color: 'var(--danger)',
-                            padding: '12px 16px',
-                            borderRadius: 'var(--r-sm)',
-                            fontSize: 13,
-                            fontWeight: 500,
+                {loading ? (
+                    // ── Loading skeleton ──
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ height: 108, borderRadius: 'var(--r-md)', background: 'var(--neu-bg)', border: '1px solid rgba(200,210,230,0.45)', boxShadow: '0 2px 8px rgba(120,140,170,0.08)', animation: 'pulse 1.4s ease-in-out infinite' }} />
+                        {[1, 2, 3].map(i => (
+                            <div key={i} style={{ height: 56, borderRadius: 'var(--r-md)', background: 'var(--neu-bg)', border: '1px solid rgba(200,210,230,0.45)', boxShadow: '0 2px 8px rgba(120,140,170,0.08)', animation: 'pulse 1.4s ease-in-out infinite' }} />
+                        ))}
+                        <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }`}</style>
+                    </div>
+                ) : (
+                    <>
+                        {/* ── Current plan ── */}
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                            Current plan
+                        </div>
+                        <NeuCard padding="22px 24px" style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            flexWrap: 'wrap', gap: 16, marginBottom: 28,
                         }}>
-                            ⚠️ {error}
-                        </div>
-                    </NeuCard>
-                )}
+                            <div>
+                                <div style={{ fontSize: 22, fontWeight: 800, textTransform: 'capitalize', color: 'var(--text-1)' }}>
+                                    {plan}
+                                </div>
+                                <div style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 4 }}>
+                                    {plan === 'free'
+                                        ? `${freeUsed} of ${FREE_RECON_LIMIT} free reconciliations used${remaining === 1 ? ' — 1 run left' : ''}`
+                                        : 'Unlimited reconciliations'}
+                                </div>
+                            </div>
+                            {plan === 'free' ? (
+                                <NeuButton variant="primary" onClick={() => router.push('/pricing')}>
+                                    ⚡ {limitReached ? 'Upgrade to continue' : 'Upgrade plan'} →
+                                </NeuButton>
+                            ) : (
+                                <span style={{
+                                    fontSize: 12, fontWeight: 700, color: 'var(--primary-dark)',
+                                    background: 'var(--primary-bg)',
+                                    padding: '8px 16px', borderRadius: 'var(--r-pill)',
+                                }}>
+                                    ✓ Active — unlimited
+                                </span>
+                            )}
+                        </NeuCard>
 
-                {!loading && !error && rows.length === 0 && (
-                    <NeuCard padding="48px">
-                        <div style={{ textAlign: 'center' }}>
-                            <p style={{ fontSize: 16, color: 'var(--text-2)', marginBottom: 8, fontWeight: 600 }}>
-                                No reconciliations yet
-                            </p>
-                            <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 24 }}>
-                                Run your first reconciliation to see results here
-                            </p>
-                            <NeuButton variant="primary" onClick={() => router.push('/upload')}>
-                                Start Reconciliation
-                            </NeuButton>
+                        {/* ── Reconciliation history ── */}
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                            Reconciliation history
                         </div>
-                    </NeuCard>
-                )}
 
-                {!loading && !error && rows.length > 0 && (
-                    <NeuCard padding="0" style={{ overflow: 'hidden' }}>
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                                <thead>
-                                    <tr style={{ background: 'var(--neu-bg)', borderBottom: '2px solid var(--neu-dark)' }}>
-                                        <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-2)' }}>Period</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: 600, color: 'var(--text-2)' }}>Date</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 600, color: 'var(--text-2)' }}>Invoices</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 600, color: 'var(--text-2)' }}>Matched</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 600, color: 'var(--text-2)' }}>ITC at Risk</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 600, color: 'var(--text-2)' }}>Score</th>
-                                        <th style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 600, color: 'var(--text-2)' }}>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {rows.map((row) => {
-                                        const summary = row.data?.summary
-                                        return (
-                                            <tr
-                                                key={row.id}
-                                                style={{ borderBottom: '1px solid var(--neu-dark)', cursor: 'pointer' }}
-                                                onClick={() => router.push(`/results/${row.id}`)}
-                                            >
-                                                <td style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-1)' }}>
-                                                    {row.period}
-                                                </td>
-                                                <td style={{ padding: '12px 16px', color: 'var(--text-3)' }}>
-                                                    {formatDate(row.created_at)}
-                                                </td>
-                                                <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--text-2)' }}>
-                                                    {summary?.totalInvoices || '-'}
-                                                </td>
-                                                <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                                                    <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
-                                                        {summary?.matched || 0}
-                                                    </span>
-                                                </td>
-                                                <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--danger)', fontWeight: 600 }}>
-                                                    ₹{(summary?.totalItcAtRisk || 0).toLocaleString('en-IN')}
-                                                </td>
-                                                <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                                                    <span style={{
-                                                        padding: '4px 10px',
-                                                        borderRadius: 'var(--r-pill)',
-                                                        fontSize: 12,
-                                                        fontWeight: 600,
-                                                        background: (summary?.complianceScore || 0) >= 80 ? 'var(--primary-bg)' : (summary?.complianceScore || 0) >= 50 ? 'var(--warning-bg)' : 'var(--danger-bg)',
-                                                        color: (summary?.complianceScore || 0) >= 80 ? 'var(--primary)' : (summary?.complianceScore || 0) >= 50 ? 'var(--warning)' : 'var(--danger)',
-                                                    }}>
-                                                        {summary?.complianceScore || 0}/100
-                                                    </span>
-                                                </td>
-                                                <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                                                    <NeuButton size="sm" variant="ghost" onClick={() => router.push(`/results/${row.id}`)}>
-                                                        View
-                                                    </NeuButton>
-                                                </td>
-                                            </tr>
-                                        )
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </NeuCard>
+                        {error ? (
+                            <NeuCard padding="24px">
+                                <div style={{
+                                    background: 'var(--danger-bg)', color: 'var(--danger)',
+                                    padding: '12px 16px', borderRadius: 'var(--r-sm)', fontSize: 13, fontWeight: 500,
+                                }}>
+                                    ⚠ {error}
+                                </div>
+                            </NeuCard>
+                        ) : rows.length === 0 ? (
+                            <NeuCard padding="44px 24px" style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: 40, marginBottom: 12 }}>🗂️</div>
+                                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', marginBottom: 6 }}>
+                                    No reconciliations yet
+                                </div>
+                                <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 20 }}>
+                                    Run your first reconciliation to see your results here
+                                </div>
+                                <NeuButton variant="primary" onClick={() => router.push('/upload')}>
+                                    Start Reconciliation →
+                                </NeuButton>
+                            </NeuCard>
+                        ) : (
+                            <NeuCard padding="0" style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640, fontSize: 13 }}>
+                                    <thead>
+                                        <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--neu-dark)' }}>
+                                            {['Period', 'Date', 'Invoices', 'Matched', 'ITC at Risk', 'Compliance', ''].map(h => (
+                                                <th key={h} style={{
+                                                    padding: '11px 16px', fontSize: 11, fontWeight: 700,
+                                                    color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.04em',
+                                                }}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {rows.map(row => {
+                                            const summary = row.data?.summary
+                                            return (
+                                                <tr key={row.id} onClick={() => router.push(`/results/${row.id}`)} style={{ cursor: 'pointer', borderBottom: '1px solid rgba(200,210,230,0.4)', transition: 'background 0.15s' }}
+                                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(238,241,246,0.8)')}
+                                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                                    <td style={{ padding: '13px 16px', fontWeight: 600, color: 'var(--text-1)' }}>{row.period}</td>
+                                                    <td style={{ padding: '13px 16px', color: 'var(--text-3)' }}>{formatDate(row.created_at)}</td>
+                                                    <td style={{ padding: '13px 16px', textAlign: 'center', color: 'var(--text-2)' }}>{summary?.totalInvoices || '-'}</td>
+                                                    <td style={{ padding: '13px 16px', textAlign: 'center', color: 'var(--primary)', fontWeight: 600 }}>{summary?.matched || 0}</td>
+                                                    <td style={{ padding: '13px 16px', textAlign: 'center', color: 'var(--danger)', fontWeight: 600 }}>₹{(summary?.totalItcAtRisk || 0).toLocaleString('en-IN')}</td>
+                                                    <td style={{ padding: '13px 16px', textAlign: 'center' }}>
+                                                        <span style={{
+                                                            padding: '4px 10px', borderRadius: 'var(--r-pill)', fontSize: 12, fontWeight: 600,
+                                                            background: (summary?.complianceScore || 0) >= 80 ? 'var(--primary-bg)' : (summary?.complianceScore || 0) >= 50 ? 'var(--warning-bg)' : 'var(--danger-bg)',
+                                                            color: (summary?.complianceScore || 0) >= 80 ? 'var(--primary)' : (summary?.complianceScore || 0) >= 50 ? 'var(--warning)' : 'var(--danger)',
+                                                        }}>
+                                                            {summary?.complianceScore || 0}/100
+                                                        </span>
+                                                    </td>
+                                                    <td style={{ padding: '13px 16px', textAlign: 'center' }}>
+                                                        <NeuButton size="sm" variant="ghost" onClick={() => router.push(`/results/${row.id}`)}>View</NeuButton>
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
+                            </NeuCard>
+                        )}
+                    </>
                 )}
             </main>
         </>
     )
 }
+
+

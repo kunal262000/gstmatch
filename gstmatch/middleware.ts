@@ -40,20 +40,20 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const path = request.nextUrl.pathname
-  const isProtectedRoute = path.startsWith('/upload') || path.startsWith('/results')
+  const isProtectedRoute = path.startsWith('/upload') || path.startsWith('/results') || path.startsWith('/dashboard')
   const isDemo = path === '/results/demo'
 
-  // Protect /upload and /results (except for the demo route)
+  // Protect /upload, /results (except the demo route) and /dashboard
   if (!user && isProtectedRoute && !isDemo) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth'
     return NextResponse.redirect(url)
   }
 
-  // Redirect authenticated user away from auth page to upload
-  if (user && path === '/auth') {
+  // Logged-in users land on their dashboard: bounce them there from / and /auth
+  if (user && (path === '/' || path === '/auth')) {
     const url = request.nextUrl.clone()
-    url.pathname = '/upload'
+    url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
 
