@@ -9,7 +9,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required customer parameters' }, { status: 400 })
     }
 
-    const appId = process.env.NEXT_PUBLIC_CASHFREE_APP_ID
+    const appId = process.env.CASHFREE_APP_ID || process.env.NEXT_PUBLIC_CASHFREE_APP_ID
     const secretKey = process.env.CASHFREE_SECRET_KEY
 
     // Fallback to mock session if Cashfree credentials are not set
@@ -24,10 +24,10 @@ export async function POST(req: Request) {
 
     const orderId = `order_${userId.substring(0, 8)}_${Date.now()}`
     
-    // Check if App ID matches sandbox or live format.
-    // Explicit NEXT_PUBLIC_CASHFREE_MODE ('sandbox'|'production') wins; otherwise
-    // default: TEST-prefixed app IDs are sandbox, everything else is production.
-    const isSandbox = process.env.NEXT_PUBLIC_CASHFREE_MODE === 'sandbox' || appId.startsWith('TEST')
+    // Resolve environment: explicit CASHFREE_ENVIRONMENT (or NEXT_PUBLIC_CASHFREE_MODE)
+    // wins; otherwise default to production. TEST-prefixed app IDs still imply sandbox.
+    const env = (process.env.CASHFREE_ENVIRONMENT || process.env.NEXT_PUBLIC_CASHFREE_MODE || 'production').toLowerCase()
+    const isSandbox = env === 'sandbox' || env === 'test' || appId.startsWith('TEST')
     const url = isSandbox 
       ? 'https://sandbox.cashfree.com/pg/orders'
       : 'https://api.cashfree.com/pg/orders'
