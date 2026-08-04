@@ -47,6 +47,7 @@ export default function PricingPage() {
   const [loadingPlan, setLoadingPlan] = useState<any>(null)
   const [message, setMessage] = useState<string>('')
   const [error, setError] = useState<string>('')
+  const [phone, setPhone] = useState<string>('')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -83,6 +84,12 @@ export default function PricingPage() {
       return
     }
 
+    const cleanPhone = phone.replace(/\D/g, '')
+    if (!/^\d{10}$/.test(cleanPhone)) {
+      setError('Please enter a valid 10-digit mobile number to continue to payment.')
+      return
+    }
+
     setLoadingPlan(planName)
 
     try {
@@ -94,6 +101,7 @@ export default function PricingPage() {
           userId: user.id,
           plan: planName.toLowerCase(),
           amount: amount,
+          phone: cleanPhone,
         }),
       })
 
@@ -212,6 +220,28 @@ export default function PricingPage() {
               color: 'var(--text-2)'
             }}>
               Your current plan: <span style={{ color: 'var(--primary)', textTransform: 'capitalize' }}>{currentPlan}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Billing details — Cashfree requires a real 10-digit mobile number */}
+        {user && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
+            <div style={{ width: '100%', maxWidth: 360 }}>
+              <label htmlFor="phone" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 8, paddingLeft: 4 }}>
+                Mobile number (used at checkout)
+              </label>
+              <input
+                id="phone"
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                placeholder="10-digit mobile number"
+                className="neu-input"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                style={{ width: '100%', boxSizing: 'border-box' }}
+              />
             </div>
           </div>
         )}

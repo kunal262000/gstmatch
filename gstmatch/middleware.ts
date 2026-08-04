@@ -50,8 +50,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Logged-in users land on their dashboard: bounce them there from / and /auth
-  if (user && (path === '/' || path === '/auth')) {
+  // Logged-in users are bounced off the login page; the "Home" tab (/) stays
+  // freely accessible so signed-in users can still view the landing page.
+  if (user && path === '/auth') {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)

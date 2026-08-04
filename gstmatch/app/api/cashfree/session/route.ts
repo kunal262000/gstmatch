@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { email, userId, plan, amount } = body
+    const { email, userId, plan, amount, phone } = body
 
     if (!userId || !email) {
       return NextResponse.json({ error: 'Missing required customer parameters' }, { status: 400 })
@@ -20,6 +20,12 @@ export async function POST(req: Request) {
         order_id: `mock_order_${Date.now()}`,
         mock: true
       })
+    }
+
+    // Cashfree's Create Order API requires a real 10-digit customer phone.
+    const cleanPhone = (phone || '').replace(/\D/g, '')
+    if (!/^\d{10}$/.test(cleanPhone)) {
+      return NextResponse.json({ error: 'A valid 10-digit mobile number is required for checkout.' }, { status: 400 })
     }
 
     const orderId = `order_${userId.substring(0, 8)}_${Date.now()}`
@@ -47,7 +53,7 @@ export async function POST(req: Request) {
         customer_details: {
           customer_id: userId,
           customer_email: email,
-          customer_phone: '9999999999',
+          customer_phone: cleanPhone,
         },
         order_meta: {
           return_url: `${new URL(req.url).origin}/upload?order_id={order_id}`,
