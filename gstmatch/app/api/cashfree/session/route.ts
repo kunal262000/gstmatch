@@ -24,8 +24,10 @@ export async function POST(req: Request) {
 
     const orderId = `order_${userId.substring(0, 8)}_${Date.now()}`
     
-    // Check if App ID matches sandbox or live format
-    const isSandbox = appId.startsWith('TEST') || !appId.match(/^\d+$/)
+    // Check if App ID matches sandbox or live format.
+    // Explicit NEXT_PUBLIC_CASHFREE_MODE ('sandbox'|'production') wins; otherwise
+    // default: TEST-prefixed app IDs are sandbox, everything else is production.
+    const isSandbox = process.env.NEXT_PUBLIC_CASHFREE_MODE === 'sandbox' || appId.startsWith('TEST')
     const url = isSandbox 
       ? 'https://sandbox.cashfree.com/pg/orders'
       : 'https://api.cashfree.com/pg/orders'
@@ -56,7 +58,10 @@ export async function POST(req: Request) {
     if (!res.ok) {
       const errText = await res.text()
       console.error('Cashfree Create Order failed:', errText)
-      return NextResponse.json({ error: 'Cashfree order creation failed' }, { status: 500 })
+      return NextResponse.json(
+        { error: `Cashfree order creation failed: ${errText.slice(0, 300)}` },
+        { status: 502 }
+      )
     }
 
     const data = await res.json()

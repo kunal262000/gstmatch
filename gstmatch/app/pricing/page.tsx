@@ -126,7 +126,7 @@ export default function PricingPage() {
       } else {
         // Live Cashfree integration
         const { load } = await import('@cashfreepayments/cashfree-js')
-        const isSandbox = process.env.NEXT_PUBLIC_CASHFREE_APP_ID?.startsWith('TEST')
+        const isSandbox = process.env.NEXT_PUBLIC_CASHFREE_MODE === 'sandbox' || process.env.NEXT_PUBLIC_CASHFREE_APP_ID?.startsWith('TEST')
         const cashfree = await load({
           mode: isSandbox ? 'sandbox' : 'production',
         })

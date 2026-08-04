@@ -43,7 +43,7 @@ export default function AuthPage() {
       } else if (data.user && data.session) {
         setSuccess('Account created successfully! Redirecting...')
         setTimeout(() => {
-          router.push('/upload')
+          router.push('/')
         }, 1500)
       } else {
         setSuccess('Verification link sent to email! Please check your inbox.')
@@ -59,7 +59,7 @@ export default function AuthPage() {
       } else {
         setSuccess('Logged in successfully! Redirecting...')
         setTimeout(() => {
-          router.push('/upload')
+          router.push('/')
         }, 1000)
       }
     }
