@@ -1,6 +1,44 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createDecipheriv, createHash } from 'crypto'
+import { getPack, getPackByAmount, type Tier } from '@/lib/pricing'
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24
+
+// Compute the expiry timestamp for a paid period of `durationDays` from now.
+function expiryFromNow(durationDays: number): string {
+  return new Date(Date.now() + durationDays * MS_PER_DAY).toISOString()
+}
+
+// Resolve which plan + duration was purchased from a Cashfree webhook payload.
+// Primary source is the `order_note` we set at session creation ("tier:days");
+// falls back to the unique order_amount → pack map, then to legacy price points.
+function resolvePurchasedPack(payload: any): { tier: string; durationDays: number } | null {
+  const note = payload?.data?.order?.order_note
+  if (typeof note === 'string') {
+    const [tier, dur] = note.split(':')
+    const durationDays = Number(dur)
+    if (tier && durationDays > 0) return { tier, durationDays }
+  }
+  const amt = Number(payload?.data?.order?.order_amount)
+  const pack = getPackByAmount(amt)
+  if (pack) return { tier: pack.tier, durationDays: pack.durationDays }
+  return null
+}
+
+// Upsert a user's plan (+ expiry). Resilient to the `plan_expires_at` column
+// not existing yet (migration not run): falls back to updating just the plan so
+// that a successful payment is never blocked by a missing column.
+async function upsertUserPlan(
+  admin: any,
+  row: { id: string; email: string; plan: string; plan_expires_at?: string }
+) {
+  let { error } = await admin.from('users').upsert(row)
+  if (error && /plan_expires_at|column|relation/i.test(error.message || '')) {
+    ;({ error } = await admin.from('users').upsert({ id: row.id, email: row.email, plan: row.plan }))
+  }
+  return error
+}
 
 // Verify a Cashfree webhook signature (Cashfree webhook v1 / 2024+ format):
 //   signature = base64( iv + AES-256-CBC( key = sha256(secret), iv, plaintext ) ),
@@ -59,49 +97,52 @@ export async function POST(req: Request) {
     // 1. Handle mock subscription upgrades for local testing/review
     if (payload.mock === true) {
       const { userId, email, plan } = payload
-      const { error } = await supabaseAdmin
-        .from('users')
-        .upsert({
-          id: userId,
-          email: email,
-          plan: plan,
-        })
+      const pack = getPack(plan as Tier)
+      if (!pack) {
+        return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
+      }
+      const expiresAt = expiryFromNow(pack.durationDays)
+      const error = await upsertUserPlan(supabaseAdmin, {
+        id: userId,
+        email,
+        plan: pack.tier,
+        plan_expires_at: expiresAt,
+      })
 
       if (error) {
         console.error('Mock database update error:', error)
         return NextResponse.json({ error: 'Database update failed' }, { status: 500 })
       }
 
-      console.log(`[MOCK] User ${userId} plan set to ${plan}`)
-      return NextResponse.json({ success: true, message: `Mock status updated to ${plan}` })
+      console.log(`[MOCK] User ${userId} plan set to ${pack.tier}, expires ${expiresAt}`)
+      return NextResponse.json({ success: true, message: `Mock status updated to ${pack.tier}` })
     }
 
     // 2. Handle actual Cashfree webhook callbacks
     if (payload.type === 'PAYMENT_SUCCESS_WEBHOOK') {
-      const orderAmount = payload.data.order.order_amount
       const userId = payload.data.customer_details.customer_id
       const userEmail = payload.data.customer_details.customer_email
 
-      let plan = 'free'
-      if (orderAmount === 299) plan = 'starter'
-      else if (orderAmount === 699) plan = 'growth'
-      else if (orderAmount > 299 && orderAmount < 600) plan = 'starter'
-      else if (orderAmount >= 600) plan = 'growth'
+      const resolved = resolvePurchasedPack(payload)
+      if (!resolved) {
+        console.warn('Cashfree webhook: could not resolve plan from payload', payload?.data?.order)
+        return NextResponse.json({ received: true })
+      }
 
-      const { error } = await supabaseAdmin
-        .from('users')
-        .upsert({
-          id: userId,
-          email: userEmail,
-          plan: plan,
-        })
+      const expiresAt = expiryFromNow(resolved.durationDays)
+      const error = await upsertUserPlan(supabaseAdmin, {
+        id: userId,
+        email: userEmail,
+        plan: resolved.tier,
+        plan_expires_at: expiresAt,
+      })
 
       if (error) {
         console.error('Database update error in Cashfree webhook:', error)
         return NextResponse.json({ error: 'Database update failed' }, { status: 500 })
       }
 
-      console.log(`User ${userId} plan updated to ${plan} via Cashfree Webhook`)
+      console.log(`User ${userId} plan updated to ${resolved.tier} via Cashfree Webhook (expires ${expiresAt})`)
     }
 
     return NextResponse.json({ received: true })

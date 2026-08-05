@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import NavBar from '@/components/NavBar'
 import UploadZone from '@/components/UploadZone'
 import NeuButton from '@/components/ui/NeuButton'
 import { startReconciliation } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
+import { fetchPlanStatus } from '@/lib/pricing'
 
 const MONTHS = [
   'January','February','March','April','May','June',
@@ -29,21 +31,18 @@ export default function UploadPage() {
   const [userId,       setUserId]       = useState<string | undefined>(undefined)
   const [reconCount,   setReconCount]   = useState(0)
   const [plan,         setPlan]         = useState('free')
+  const [planExpired,  setPlanExpired]  = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (user) {
         setUserId(user.id)
         try {
-          const { data: profile } = await supabase
-            .from('users')
-            .select('plan')
-            .eq('id', user.id)
-            .maybeSingle()
-          const currentPlan = (profile?.plan as string) || 'free'
-          setPlan(currentPlan)
+          const status = await fetchPlanStatus(supabase, user.id)
+          setPlan(status.effectivePlan)
+          setPlanExpired(status.plan !== 'free' && !status.active)
 
-          if (currentPlan === 'free') {
+          if (status.effectivePlan === 'free') {
             const { count } = await supabase
               .from('reconciliation_results')
               .select('id', { count: 'exact', head: true })
@@ -99,7 +98,7 @@ export default function UploadPage() {
         </div>
 
         {/* Free trial usage banner */}
-        {userId && plan === 'free' && !limitReached && (
+        {userId && plan === 'free' && !limitReached && !planExpired && (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             gap: 12, marginBottom: 20, padding: '10px 16px',
@@ -123,6 +122,20 @@ export default function UploadPage() {
             borderRadius: 'var(--r-sm)', fontSize: 13, fontWeight: 600,
           }}>
             <span>🚫 You&apos;ve reached the free limit of {FREE_RECON_LIMIT} reconciliations.</span>
+          </div>
+        )}
+
+        {planExpired && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 12, marginBottom: 20, padding: '12px 16px',
+            background: 'var(--warning-bg)', color: '#92400e',
+            borderRadius: 'var(--r-sm)', fontSize: 13, fontWeight: 600,
+          }}>
+            <span>⏳ Your subscription has expired — you&apos;re on the free plan. Renew to restore unlimited reconciliations.</span>
+            <Link href="/pricing" style={{ whiteSpace: 'nowrap', color: '#92400e', fontWeight: 700, textDecoration: 'underline' }}>
+              Renew Now →
+            </Link>
           </div>
         )}
 

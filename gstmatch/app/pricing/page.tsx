@@ -7,38 +7,11 @@ import NavBar from '@/components/NavBar'
 import NeuCard from '@/components/ui/NeuCard'
 import NeuButton from '@/components/ui/NeuButton'
 import { supabase } from '@/lib/supabase'
-
-const PLANS = [
-  {
-    name: 'Starter',
-    price: '₹299',
-    rawPrice: 299,
-    period: '/month',
-    desc: 'Perfect for small traders and retailers.',
-    features: [
-      '1 GSTIN profile',
-      'Up to 500 invoices per month',
-      'Excel & PDF report download',
-      'Fuzzy matching engine (rapidfuzz)',
-      'Email compliance support',
-    ],
-  },
-  {
-    name: 'Growth',
-    price: '₹699',
-    rawPrice: 699,
-    period: '/month',
-    desc: 'Best for growing MSMEs and distributors.',
-    features: [
-      'Up to 3 GSTIN profiles',
-      'Up to 2000 invoices per month',
-      'Excel & PDF report download',
-      'Fuzzy matching engine (rapidfuzz)',
-      'WhatsApp compliance support',
-      'Compliance score history trend',
-    ],
-  },
-]
+import {
+  TIERS,
+  fetchPlanStatus,
+  getPack,
+} from '@/lib/pricing'
 
 export default function PricingPage() {
   const router = useRouter()
@@ -61,21 +34,14 @@ export default function PricingPage() {
 
   const fetchUserPlan = async (userId: string) => {
     try {
-      const { data, error: planErr } = await supabase
-        .from('users')
-        .select('plan')
-        .eq('id', userId)
-        .maybeSingle()
-
-      if (data) {
-        setCurrentPlan(data.plan)
-      }
+      const status = await fetchPlanStatus(supabase, userId)
+      setCurrentPlan(status.effectivePlan)
     } catch (err) {
       console.error('Error fetching user plan:', err)
     }
   }
 
-  const handleCheckout = async (planName: string, amount: number) => {
+  const handleCheckout = async (tierId: string) => {
     setError('')
     setMessage('')
 
@@ -90,7 +56,13 @@ export default function PricingPage() {
       return
     }
 
-    setLoadingPlan(planName)
+    const pack = getPack(tierId)
+    if (!pack) {
+      setError('Selected plan is unavailable. Please choose another option.')
+      return
+    }
+
+    setLoadingPlan(tierId)
 
     try {
       const response = await fetch('/api/cashfree/session', {
@@ -99,8 +71,7 @@ export default function PricingPage() {
         body: JSON.stringify({
           email: user.email,
           userId: user.id,
-          plan: planName.toLowerCase(),
-          amount: amount,
+          plan: tierId,
           phone: cleanPhone,
         }),
       })
@@ -120,14 +91,15 @@ export default function PricingPage() {
             mock: true,
             userId: user.id,
             email: user.email,
-            plan: planName.toLowerCase(),
+            plan: tierId,
           }),
         })
 
         const webhookData = await webhookResponse.json()
+        const tierName = TIERS.find((t) => t.id === tierId)?.name ?? tierId
         if (webhookData.success) {
-          setMessage(`Payment successful! You have been upgraded to the ${planName} plan.`)
-          setCurrentPlan(planName.toLowerCase())
+          setMessage(`Payment successful! You have been upgraded to the ${tierName} plan.`)
+          fetchUserPlan(user.id)
         } else {
           throw new Error('Upgrade update failed.')
         }
@@ -248,12 +220,12 @@ export default function PricingPage() {
 
         {/* Pricing Cards Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px,1fr))', gap: 24, marginTop: 12 }}>
-          {PLANS.map((p) => {
-            const isCurrent = currentPlan === p.name.toLowerCase()
-            const isPopular = p.name === 'Starter'
+          {TIERS.map((tier) => {
+            const isCurrent = currentPlan === tier.id
+            const isPopular = tier.id === 'deluxe'
 
             return (
-              <NeuCard key={p.name} padding="36px" style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+              <NeuCard key={tier.id} padding="36px" style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
                 {isPopular && (
                   <div style={{
                     position: 'absolute',
@@ -271,20 +243,21 @@ export default function PricingPage() {
                   </div>
                 )}
 
-                <h3 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', marginBottom: 8 }}>{p.name}</h3>
-                <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20, minHeight: 40 }}>{p.desc}</p>
+                <h3 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', marginBottom: 8 }}>{tier.name}</h3>
+                <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20, minHeight: 40 }}>{tier.desc}</p>
 
-                <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 24 }}>
-                  <span style={{ fontSize: 36, fontWeight: 800, color: 'var(--text-1)' }}>{p.price}</span>
-                  <span style={{ fontSize: 14, color: 'var(--text-3)', marginLeft: 4 }}>{p.period}</span>
+                <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 8 }}>
+                  <span style={{ fontSize: 36, fontWeight: 800, color: 'var(--text-1)' }}>₹{tier.amount.toLocaleString('en-IN')}</span>
+                  <span style={{ fontSize: 14, color: 'var(--text-3)', marginLeft: 4 }}>/{tier.periodLabel}</span>
                 </div>
+                <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 24 }}>One-time payment</div>
 
                 <div style={{ flexGrow: 1, marginBottom: 28 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                     What&apos;s Included
                   </div>
                   <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {p.features.map((feat) => (
+                    {tier.features.map((feat) => (
                       <li key={feat} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-2)' }}>
                         <span style={{ color: 'var(--primary)', fontSize: 14, fontWeight: 'bold' }}>✓</span>
                         {feat}
@@ -297,10 +270,10 @@ export default function PricingPage() {
                   variant={isCurrent ? 'ghost' : 'primary'}
                   size="lg"
                   fullWidth
-                  disabled={isCurrent || loadingPlan !== null}
-                  onClick={() => handleCheckout(p.name, p.rawPrice)}
+                  disabled={loadingPlan !== null}
+                  onClick={() => handleCheckout(tier.id)}
                 >
-                  {loadingPlan === p.name ? 'Processing...' : isCurrent ? 'Active Plan' : `Get ${p.name}`}
+                  {loadingPlan === tier.id ? 'Processing...' : isCurrent ? 'Renew / Extend' : `Get ${tier.name}`}
                 </NeuButton>
               </NeuCard>
             )

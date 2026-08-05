@@ -1,12 +1,20 @@
 import { NextResponse } from 'next/server'
+import { getPack, type Tier } from '@/lib/pricing'
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { email, userId, plan, amount, phone } = body
+    const { email, userId, plan, phone } = body
 
     if (!userId || !email) {
       return NextResponse.json({ error: 'Missing required customer parameters' }, { status: 400 })
+    }
+
+    // Resolve the selected plan to a single trusted amount on the server, so
+    // the price can never be tampered with from the client.
+    const pack = getPack(plan as Tier)
+    if (!pack) {
+      return NextResponse.json({ error: 'Invalid plan.' }, { status: 400 })
     }
 
     const appId = process.env.CASHFREE_APP_ID || process.env.NEXT_PUBLIC_CASHFREE_APP_ID
@@ -48,13 +56,14 @@ export async function POST(req: Request) {
       },
       body: JSON.stringify({
         order_id: orderId,
-        order_amount: amount,
+        order_amount: pack.amount,
         order_currency: 'INR',
         customer_details: {
           customer_id: userId,
           customer_email: email,
           customer_phone: cleanPhone,
         },
+        order_note: `${pack.tier}:${pack.durationDays}`,
         order_meta: {
           return_url: `${new URL(req.url).origin}/upload?order_id={order_id}`,
         }

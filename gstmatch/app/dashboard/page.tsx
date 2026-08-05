@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import NavBar from '@/components/NavBar'
 import NeuCard from '@/components/ui/NeuCard'
 import NeuButton from '@/components/ui/NeuButton'
 import { supabase } from '@/lib/supabase'
 import { ReconciliationResult } from '@/lib/types'
+import { fetchPlanStatus, formatExpiryDate, type PlanStatus } from '@/lib/pricing'
 
 interface DashboardRow {
     id:         string
@@ -24,6 +26,7 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [plan, setPlan] = useState('free')
+    const [planStatus, setPlanStatus] = useState<PlanStatus | null>(null)
     const [reconCount, setReconCount] = useState(0)
 
     useEffect(() => {
@@ -49,14 +52,11 @@ export default function DashboardPage() {
         }
 
         try {
-            // Current plan + free-tier usage
-            const { data: profile } = await supabase
-                .from('users')
-                .select('plan')
-                .eq('id', user.id)
-                .maybeSingle()
-            const currentPlan = (profile?.plan as string) || 'free'
-            setPlan(currentPlan)
+            // Current plan + expiry + free-tier usage
+            const status = await fetchPlanStatus(supabase, user.id)
+            setPlanStatus(status)
+            setPlan(status.effectivePlan)
+            const currentPlan = status.effectivePlan
 
             if (currentPlan === 'free') {
                 const { count } = await supabase
@@ -101,6 +101,31 @@ export default function DashboardPage() {
         <>
             <NavBar />
             <main className="page-container">
+                {/* Expiry / renewal banner */}
+                {planStatus && (planStatus.plan === 'starter' || planStatus.plan === 'growth') && planStatus.daysRemaining !== null && planStatus.daysRemaining <= 3 && (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12,
+                        marginBottom: 22, padding: '14px 18px', borderRadius: 'var(--r-md)',
+                        background: planStatus.daysRemaining > 0 ? 'var(--warning-bg)' : 'var(--danger-bg)',
+                        color: planStatus.daysRemaining > 0 ? '#92400e' : 'var(--danger)',
+                        fontSize: 14, fontWeight: 600,
+                        boxShadow: 'inset 2px 2px 5px rgba(0,0,0,0.03)',
+                    }}>
+                        <span>
+                            {planStatus.daysRemaining > 0
+                                ? `⏳ Your ${planStatus.plan} plan expires in ${planStatus.daysRemaining} day${planStatus.daysRemaining === 1 ? '' : 's'}${formatExpiryDate(planStatus.planExpiresAt) ? ' — on ' + formatExpiryDate(planStatus.planExpiresAt) : ''}. Renew now to keep your access.`
+                                : `⛔ Your ${planStatus.plan} plan has expired. Renew now to restore your access.`}
+                        </span>
+                        <Link href="/pricing" style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                            padding: '8px 16px', borderRadius: 'var(--r-pill)', fontSize: 13, fontWeight: 700,
+                            background: planStatus.daysRemaining > 0 ? '#92400e' : 'var(--danger)', color: 'white',
+                            textDecoration: 'none', whiteSpace: 'nowrap',
+                        }}>
+                            Renew Now →
+                        </Link>
+                    </div>
+                )}
                 {/* Page heading */}
                 <div style={{ marginBottom: 22 }}>
                     <h1 style={{ fontSize: 'var(--fs-h1)', fontWeight: 800, color: 'var(--text-1)' }}>

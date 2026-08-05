@@ -38,6 +38,7 @@ CREATE TABLE public.users (
     id UUID PRIMARY KEY,
     email TEXT,
     plan TEXT DEFAULT 'free',
+    plan_expires_at TIMESTAMPTZ,
     usage_count INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -53,7 +54,13 @@ CREATE POLICY "Users see own results" ON public.reconciliation_results
 -- Policy: users can insert their own results
 CREATE POLICY "Users insert own results" ON public.reconciliation_results
     FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Policy: users can read their own plan + expiry (dashboard banner & usage limits)
+CREATE POLICY "Users read own profile" ON public.users
+    FOR SELECT USING (auth.uid() = id);
 ```
+
+> **Existing project?** If you created these tables before plan-expiry tracking was added, run the migration in `gstmatch/supabase/migrations/0002_plan_expires_at.sql` to add the `plan_expires_at` column and the read policy.
 
 5. Go to **Authentication → Settings** and add your Vercel URL to **Redirect URLs**
 
