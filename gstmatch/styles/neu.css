@@ -131,3 +131,16 @@ html, body {
   margin: 0 auto;
   padding: 24px 20px 48px;
 }
+
+/* ── Pricing grid: all 3 plan cards on one line on desktop, stacked on mobile ── */
+.pricing-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  margin-top: 12px;
+}
+@media (min-width: 800px) {
+  .pricing-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

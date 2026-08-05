@@ -219,7 +219,7 @@ export default function PricingPage() {
         )}
 
         {/* Pricing Cards Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px,1fr))', gap: 24, marginTop: 12 }}>
+        <div className="pricing-grid">
           {TIERS.map((tier) => {
             const isCurrent = currentPlan === tier.id
             const isPopular = tier.id === 'deluxe'
