@@ -1,4 +1,5 @@
 import { ReconciliationResult, UploadResponse } from './types'
+import { supabase } from './supabase'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -34,11 +35,22 @@ export async function startReconciliation(
   return res.json()
 }
 
+// ─── Helpers ────────────────────────────────────
+// Attach the current user's Supabase access token so backend routes gated by
+// JWT ownership checks (e.g. current_user_or_401) can authorize the request.
+async function authHeader(): Promise<HeadersInit> {
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+}
+
 // ─── Poll for result by job ID ────────────────
 export async function getResult(jobId: string): Promise<ReconciliationResult> {
-  const res = await fetch(`${API_URL}/api/results/${jobId}`)
+  const res = await fetch(`${API_URL}/api/results/${jobId}`, {
+    headers: await authHeader(),
+  })
 
   if (!res.ok) {
+    if (res.status === 401) throw new Error('Please log in to view this result')
     if (res.status === 404) throw new Error('Result not found')
     throw new Error('Failed to fetch result')
   }
@@ -48,7 +60,9 @@ export async function getResult(jobId: string): Promise<ReconciliationResult> {
 
 // ─── Download Excel report ────────────────────
 export async function downloadExcel(jobId: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/results/${jobId}/excel`)
+  const res = await fetch(`${API_URL}/api/results/${jobId}/excel`, {
+    headers: await authHeader(),
+  })
   if (!res.ok) throw new Error('Download failed')
 
   const blob = await res.blob()
@@ -62,7 +76,9 @@ export async function downloadExcel(jobId: string): Promise<void> {
 
 // ─── Download PDF report ──────────────────────
 export async function downloadPDF(jobId: string): Promise<void> {
-  const res = await fetch(`${API_URL}/api/results/${jobId}/pdf`)
+  const res = await fetch(`${API_URL}/api/results/${jobId}/pdf`, {
+    headers: await authHeader(),
+  })
   if (!res.ok) throw new Error('Download failed')
 
   const blob = await res.blob()

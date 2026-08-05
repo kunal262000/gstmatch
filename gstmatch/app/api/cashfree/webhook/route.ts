@@ -35,7 +35,7 @@ async function upsertUserPlan(
 ) {
   let { error } = await admin.from('users').upsert(row)
   if (error && /plan_expires_at|column|relation/i.test(error.message || '')) {
-    ;({ error } = await admin.from('users').upsert({ id: row.id, email: row.email, plan: row.plan }))
+    ; ({ error } = await admin.from('users').upsert({ id: row.id, email: row.email, plan: row.plan }))
   }
   return error
 }
@@ -69,9 +69,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
     }
 
-    // Optional webhook signature verification. Enforced ONLY when explicitly enabled
-    // (CASHFREE_VERIFY_WEBHOOK=true) so the live flow is never broken by default.
-    if (process.env.CASHFREE_VERIFY_WEBHOOK === 'true' && process.env.CASHFREE_WEBHOOK_SECRET) {
+    // Webhook signature verification. 
+    // In production (CASHFREE_VERIFY_WEBHOOK=true), this is REQUIRED.
+    // In development, it's optional but recommended.
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production'
+    const shouldVerify = process.env.CASHFREE_VERIFY_WEBHOOK === 'true' || isProduction
+
+    if (shouldVerify && process.env.CASHFREE_WEBHOOK_SECRET) {
       const ts = req.headers.get('x-webhook-timestamp')
       const sig = req.headers.get('x-webhook-signature')
       if (!ts || !sig || !verifyCashfreeWebhook(sig, ts, process.env.CASHFREE_WEBHOOK_SECRET, rawBody)) {
@@ -79,6 +83,11 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 })
       }
       console.log('Cashfree webhook signature verified.')
+    } else if (isProduction && !process.env.CASHFREE_WEBHOOK_SECRET) {
+      console.error('SECURITY WARNING: CASHFREE_WEBHOOK_SECRET not set in production!')
+      return NextResponse.json({ error: 'Webhook verification not configured' }, { status: 500 })
+    } else if (shouldVerify && !process.env.CASHFREE_WEBHOOK_SECRET) {
+      console.warn('Cashfree webhook verification enabled but CASHFREE_WEBHOOK_SECRET not set.')
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!

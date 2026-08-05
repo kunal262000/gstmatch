@@ -1,6 +1,35 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Simple in-memory rate limiter (use Redis in production for multi-instance deployments)
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
+
+function checkRateLimit(identifier: string, maxRequests: number, windowMs: number): boolean {
+  const now = Date.now()
+  const record = rateLimitMap.get(identifier)
+
+  if (!record || now > record.resetTime) {
+    rateLimitMap.set(identifier, { count: 1, resetTime: now + windowMs })
+    return true
+  }
+
+  if (record.count >= maxRequests) {
+    return false
+  }
+
+  record.count++
+  return true
+}
+
+function getClientIdentifier(request: NextRequest): string {
+  // Use IP + User-Agent for basic identification
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown'
+  const ua = request.headers.get('user-agent') || 'unknown'
+  return `${ip}:${ua.slice(0, 50)}`
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -42,6 +71,30 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
   const isProtectedRoute = path.startsWith('/upload') || path.startsWith('/results') || path.startsWith('/dashboard')
   const isDemo = path === '/results/demo'
+  const isAuthRoute = path === '/auth'
+  const isApiRoute = path.startsWith('/api/')
+
+  // Rate limiting for auth routes (5 requests per minute per IP)
+  if (isAuthRoute && request.method === 'POST') {
+    const identifier = `auth:${getClientIdentifier(request)}`
+    if (!checkRateLimit(identifier, 5, 60_000)) {
+      return new NextResponse(JSON.stringify({ error: 'Too many requests. Please try again later.' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json', 'Retry-After': '60' }
+      })
+    }
+  }
+
+  // Rate limiting for API routes (30 requests per minute per IP)
+  if (isApiRoute) {
+    const identifier = `api:${getClientIdentifier(request)}`
+    if (!checkRateLimit(identifier, 30, 60_000)) {
+      return new NextResponse(JSON.stringify({ error: 'Too many requests. Please try again later.' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json', 'Retry-After': '60' }
+      })
+    }
+  }
 
   // Protect /upload, /results (except the demo route) and /dashboard
   if (!user && isProtectedRoute && !isDemo) {

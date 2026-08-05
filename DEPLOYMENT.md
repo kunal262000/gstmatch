@@ -112,8 +112,11 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 1. Go to [cashfree.com](https://cashfree.com) and create a merchant account
 2. Get your **App ID** and **Secret Key** (use TEST keys for testing)
 3. Add them to Vercel environment variables (already done in Step 3)
-4. Set the webhook URL in Cashfree dashboard to:
-   `https://your-app.vercel.app/api/cashfree/webhook`
+4. **IMPORTANT**: In Cashfree dashboard, go to **Developers → Webhooks → Add Policy** and:
+   - Set webhook URL to: `https://your-app.vercel.app/api/cashfree/webhook`
+   - Copy the **Webhook Signing Secret** and add it as `CASHFREE_WEBHOOK_SECRET` in Vercel
+   - Enable events: `PAYMENT_SUCCESS_WEBHOOK`
+5. Set `CASHFREE_VERIFY_WEBHOOK=true` in Vercel environment variables (required for production security)
 
 ---
 
@@ -131,14 +134,18 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ## Environment Variables Summary
 
 ### Frontend (Vercel)
-| Variable | Value |
-|----------|-------|
-| `NEXT_PUBLIC_API_URL` | Railway backend URL |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
-| `NEXT_PUBLIC_CASHFREE_APP_ID` | Cashfree app ID |
-| `CASHFREE_SECRET_KEY` | Cashfree secret key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
+| Variable | Value | Required |
+|----------|-------|----------|
+| `NEXT_PUBLIC_API_URL` | Railway backend URL | Yes |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Yes |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key | Yes |
+| `NEXT_PUBLIC_CASHFREE_APP_ID` | Cashfree app ID | For payments |
+| `CASHFREE_SECRET_KEY` | Cashfree secret key | For payments |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | Yes |
+| `CASHFREE_WEBHOOK_SECRET` | Cashfree webhook signing secret | **Yes (production)** |
+| `CASHFREE_VERIFY_WEBHOOK` | `true` (enables webhook verification) | **Yes (production)** |
+| `CASHFREE_ENVIRONMENT` | `PRODUCTION` or `SANDBOX` | For payments |
+| `NEXT_PUBLIC_CASHFREE_MODE` | `production` or `sandbox` | For payments |
 
 ### Backend (Railway)
 | Variable | Value |
@@ -167,3 +174,44 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 - Use Cashfree TEST keys first
 - Check webhook URL is accessible
 - Verify `CASHFREE_SECRET_KEY` is set in Vercel
+
+---
+
+## Security Features Implemented
+
+### 1. Security Headers (next.config.js)
+- **Content-Security-Policy**: Restricts script/style/font sources to trusted domains
+- **X-Frame-Options: DENY**: Prevents clickjacking
+- **X-Content-Type-Options: nosniff**: Prevents MIME type sniffing
+- **X-XSS-Protection**: Legacy XSS protection
+- **Referrer-Policy**: Controls referrer information
+- **Permissions-Policy**: Disables camera/microphone/geolocation
+
+### 2. Rate Limiting (middleware.ts)
+- **Auth routes**: 5 requests/minute per IP (prevents brute force)
+- **API routes**: 30 requests/minute per IP (prevents abuse)
+- In-memory store (use Redis for multi-instance production)
+
+### 3. Webhook Verification (Cashfree)
+- **AES-256-CBC + SHA256** signature verification
+- **Required in production** (enforced when `CASHFREE_VERIFY_WEBHOOK=true` or `NODE_ENV=production`)
+- Fails fast if secret not configured in production
+
+### 4. Row Level Security (Supabase)
+- Users can only access their own reconciliation results
+- Users can only read their own plan/profile data
+- Service role key only used server-side (webhooks)
+
+### 5. Environment Variable Security
+- All secrets in `.env` files (gitignored)
+- No hardcoded secrets in codebase
+- Service role key never exposed to client
+
+### Production Security Checklist
+- [ ] Set `CASHFREE_VERIFY_WEBHOOK=true` in Vercel
+- [ ] Set `CASHFREE_WEBHOOK_SECRET` from Cashfree dashboard
+- [ ] Use strong, unique passwords for all services
+- [ ] Enable MFA on Supabase, Vercel, Railway, Cashfree accounts
+- [ ] Rotate secrets periodically (every 90 days)
+- [ ] Monitor Supabase auth logs for suspicious activity
+- [ ] Consider Redis-based rate limiting for multi-instance deployments

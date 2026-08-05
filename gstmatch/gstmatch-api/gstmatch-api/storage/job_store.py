@@ -119,6 +119,38 @@ def get(job_id: str) -> Optional[ReconciliationResult]:
     return None
 
 
+def get_with_owner(job_id: str) -> tuple[Optional[ReconciliationResult], Optional[str]]:
+    """
+    Return (result, owner_user_id) for a job, checking memory first then Supabase.
+
+    The owner id lets the route layer enforce ownership (IDOR protection) against
+    the authenticated caller's JWT 'sub'. In offline mode the owner comes from
+    the in-memory metadata (set at save time), which is None for legacy runs.
+    """
+    # In-memory cache (also holds metadata captured at save time).
+    if job_id in _store:
+        return _store[job_id], _store_meta.get(job_id, {}).get("user_id")
+
+    if not _enabled():
+        return None, None
+
+    url, key = _supabase_config()
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.get(
+                f"{url}/rest/v1/{TABLE}",
+                headers=_auth_headers(key),
+                params={"id": f"eq.{job_id}", "select": "data,user_id"},
+            )
+            if resp.status_code == 200 and resp.json():
+                row = resp.json()[0]
+                return (_row_to_result(row), row.get("user_id"))
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Supabase get_with_owner error: %s", e)
+
+    return None, None
+
+
 def exists(job_id: str) -> bool:
     if job_id in _store:
         return True
