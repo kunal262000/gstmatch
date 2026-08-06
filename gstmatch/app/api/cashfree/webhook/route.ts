@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { createDecipheriv, createHash } from 'crypto'
+import { createHmac } from 'crypto'
 import { getPack, getPackByAmount, type Tier } from '@/lib/pricing'
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24
@@ -40,20 +40,19 @@ async function upsertUserPlan(
   return error
 }
 
-// Verify a Cashfree webhook signature (Cashfree webhook v1 / 2024+ format):
-//   signature = base64( iv + AES-256-CBC( key = sha256(secret), iv, plaintext ) ),
-//   plaintext = `${timestamp}.${rawBody}`
+// Verify a Cashfree webhook signature using Cashfree's documented HMAC-SHA256
+// flow:
+//   1. Read x-webhook-signature, x-webhook-timestamp from request headers, and
+//      the RAW request body (never parsed/modified).
+//   2. Compute signature data = timestamp + rawBody.
+//   3. HMAC-SHA256 it with the webhook secret key.
+//   4. Base64-encode the hash.
+//   5. Compare computed == x-webhook-signature.
 function verifyCashfreeWebhook(signature: string, timestamp: string, secret: string, rawBody: string): boolean {
   try {
-    const iv = Buffer.from(signature.slice(0, 24), 'base64') // 16-byte IV (base64 = 24 chars)
-    const encrypted = signature.slice(24)
-    const key = createHash('sha256').update(secret).digest()
-    const decipher = createDecipheriv('aes-256-cbc', key, iv)
-    const decrypted = Buffer.concat([
-      decipher.update(Buffer.from(encrypted, 'base64')),
-      decipher.final(),
-    ]).toString('utf8')
-    return decrypted === `${timestamp}.${rawBody}`
+    const signatureData = timestamp + rawBody
+    const computed = createHmac('sha256', secret).update(signatureData).digest('base64')
+    return computed === signature
   } catch {
     return false
   }
@@ -69,24 +68,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
     }
 
-    // Webhook signature verification. 
-    // In production (CASHFREE_VERIFY_WEBHOOK=true), this is REQUIRED.
-    // In development, it's optional but recommended.
+    // Webhook signature verification.
+    // - When CASHFREE_WEBHOOK_SECRET is set: verify the HMAC-SHA256 signature
+    //   and reject (401) on mismatch/missing headers.
+    // - In production without the secret: acknowledge the webhook (so Cashfree's
+    //   test and real deliveries are not 500'd) but mark verification as failed
+    //   so plan upgrades are SKIPPED (fail-closed on upgrades) until configured.
     const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production'
+    const hasSecret = Boolean(process.env.CASHFREE_WEBHOOK_SECRET)
     const shouldVerify = process.env.CASHFREE_VERIFY_WEBHOOK === 'true' || isProduction
 
-    if (shouldVerify && process.env.CASHFREE_WEBHOOK_SECRET) {
+    let verified = false
+    if (hasSecret) {
       const ts = req.headers.get('x-webhook-timestamp')
       const sig = req.headers.get('x-webhook-signature')
-      if (!ts || !sig || !verifyCashfreeWebhook(sig, ts, process.env.CASHFREE_WEBHOOK_SECRET, rawBody)) {
+      if (!ts || !sig || !verifyCashfreeWebhook(sig, ts, process.env.CASHFREE_WEBHOOK_SECRET!, rawBody)) {
         console.warn('Cashfree webhook signature verification failed.')
         return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 })
       }
+      verified = true
       console.log('Cashfree webhook signature verified.')
-    } else if (isProduction && !process.env.CASHFREE_WEBHOOK_SECRET) {
-      console.error('SECURITY WARNING: CASHFREE_WEBHOOK_SECRET not set in production!')
-      return NextResponse.json({ error: 'Webhook verification not configured' }, { status: 500 })
-    } else if (shouldVerify && !process.env.CASHFREE_WEBHOOK_SECRET) {
+    } else if (isProduction) {
+      console.warn('Cashfree webhook received in production without CASHFREE_WEBHOOK_SECRET — acknowledging but skipping plan upgrades.')
+    } else if (shouldVerify) {
       console.warn('Cashfree webhook verification enabled but CASHFREE_WEBHOOK_SECRET not set.')
     }
 
@@ -103,8 +107,13 @@ export async function POST(req: Request) {
       auth: { persistSession: false }
     })
 
-    // 1. Handle mock subscription upgrades for local testing/review
+    // 1. Handle mock subscription upgrades for local testing/review.
+    //    Dangerous in production (grants paid plans without payment) -> disabled there.
     if (payload.mock === true) {
+      if (isProduction) {
+        console.warn('[webhook] Mock plan grant rejected in production.')
+        return NextResponse.json({ error: 'Mock grants are disabled in production' }, { status: 403 })
+      }
       const { userId, email, plan } = payload
       const pack = getPack(plan as Tier)
       if (!pack) {
@@ -129,6 +138,13 @@ export async function POST(req: Request) {
 
     // 2. Handle actual Cashfree webhook callbacks
     if (payload.type === 'PAYMENT_SUCCESS_WEBHOOK') {
+      // In production, never upgrade a plan without a verified signature
+      // (fail-closed on upgrades until CASHFREE_WEBHOOK_SECRET is configured).
+      if (isProduction && !verified) {
+        console.warn('[webhook] PAYMENT_SUCCESS in production without a verified signature — acknowledgement only, no plan upgrade.')
+        return NextResponse.json({ received: true, skipped: true })
+      }
+
       const userId = payload.data.customer_details.customer_id
       const userEmail = payload.data.customer_details.customer_email
 
