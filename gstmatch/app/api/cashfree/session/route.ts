@@ -65,7 +65,8 @@ export async function POST(req: Request) {
         },
         order_note: `${pack.tier}:${pack.durationDays}`,
         order_meta: {
-          return_url: `${new URL(req.url).origin}/upload?order_id={order_id}`,
+          return_url: `${new URL(req.url).origin}/payment/result?order_id={order_id}`,
+          notify_url: `${new URL(req.url).origin}/api/cashfree/webhook`,
         }
       })
     })

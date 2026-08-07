@@ -8,9 +8,39 @@ const inter = Inter({
   weight: ['400', '500', '600', '700', '800'],
 })
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gstmatch-six.vercel.app'
+
 export const metadata: Metadata = {
-  title: 'GSTMatch — GST Reconciliation Made Simple',
-  description: 'Upload your Purchase Register and GSTR-2B. See exactly how much tax credit you\'re losing in under 2 minutes.',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'GSTMatch — GST Reconciliation Made Simple',
+    template: '%s · GSTMatch',
+  },
+  description: 'Upload your Purchase Register and GSTR-2B. See exactly how much tax credit you are losing in under 2 minutes.',
+  applicationName: 'GSTMatch',
+  keywords: ['GST reconciliation', 'GSTR-2B', 'ITC', 'input tax credit', 'GST software India', 'purchase register', 'GST match'],
+  openGraph: {
+    type: 'website',
+    siteName: 'GSTMatch',
+    url: SITE_URL,
+    title: 'GSTMatch — GST Reconciliation Made Simple',
+    description: 'Upload your Purchase Register and GSTR-2B. See exactly how much tax credit you are losing in under 2 minutes.',
+    images: [{ url: `${SITE_URL}/og.png`, width: 1200, height: 630, alt: 'GSTMatch' }],
+    locale: 'en_IN',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'GSTMatch — GST Reconciliation Made Simple',
+    description: 'Upload your Purchase Register and GSTR-2B. See exactly how much tax credit you are losing in under 2 minutes.',
+    images: [`${SITE_URL}/og.png`],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
+  icons: {
+    icon: [{ url: '/icon.png', type: 'image/png' }],
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -44,3 +74,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   )
 }
+

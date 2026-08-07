@@ -35,6 +35,34 @@ export default function AuthPage() {
     return () => sub.subscription.unsubscribe()
   }, [router])
 
+  // ── Forgot password ──────────────────────────────
+  const [resetMode, setResetMode] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
+
+  const navigateReset = () => setResetMode(true)
+
+  const handleReset = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setSuccess('')
+    if (!email) {
+      setError('Please enter your email address.')
+      return
+    }
+    setResetLoading(true)
+    const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/update-password`,
+    })
+    setResetLoading(false)
+    if (resetErr) {
+      setError(resetErr.message)
+    } else {
+      // Generic message — don't leak whether the email exists.
+      setSuccess('If an account exists, a password reset link has been sent to your email.')
+      setResetMode(false)
+    }
+  }
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -60,6 +88,11 @@ export default function AuthPage() {
         setError(signUpErr.message)
       } else if (data.user && data.session) {
         setSuccess('Account created successfully! Redirecting...')
+        // Log the signup for the Admin activity dashboard (best-effort).
+        const userId = data.user.id
+        Promise.resolve().then(() =>
+          supabase.from('user_activity').insert({ user_id: userId, email, action: 'signup', detail: {} })
+        ).catch((e: any) => console.warn('Failed to log signup:', e))
         setTimeout(() => {
           router.push('/dashboard')
         }, 1500)
@@ -180,22 +213,53 @@ export default function AuthPage() {
               </div>
             )}
 
-            <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              {/* Email */}
-              <div>
-                <label htmlFor="email" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 8, paddingLeft: 4 }}>
-                  Email Address
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  placeholder="name@company.com"
-                  className="neu-input"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
+            {resetMode ? (
+              <form onSubmit={handleReset} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <p style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', marginBottom: 4 }}>
+                  Enter your email and we&apos;ll send you a link to reset your password.
+                </p>
+                <div>
+                  <label htmlFor="resetEmail" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 8, paddingLeft: 4 }}>
+                    Email Address
+                  </label>
+                  <input
+                    id="resetEmail"
+                    type="email"
+                    required
+                    placeholder="name@company.com"
+                    className="neu-input"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+                <NeuButton type="submit" variant="primary" size="lg" disabled={resetLoading} style={{ marginTop: 12 }}>
+                  {resetLoading ? 'Please wait...' : 'Send Reset Link'}
+                </NeuButton>
+                <button
+                  type="button"
+                  onClick={() => { setResetMode(false); setError(''); setSuccess('') }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-2)', fontWeight: 600, padding: 0 }}
+                >
+                  ← Back to sign in
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {/* Email */}
+                <div>
+                  <label htmlFor="email" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 8, paddingLeft: 4 }}>
+                    Email Address
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    required
+                    placeholder="name@company.com"
+                    className="neu-input"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
 
               {/* Password */}
               <div>
@@ -211,6 +275,17 @@ export default function AuthPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                {!isSignUp && (
+                  <div style={{ textAlign: 'right', marginTop: 6 }}>
+                    <button
+                      type="button"
+                      onClick={() => navigateReset()}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--primary-dark)', fontWeight: 600, padding: 0 }}
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Confirm Password */}
@@ -240,7 +315,8 @@ export default function AuthPage() {
               >
                 {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
               </NeuButton>
-            </form>
+              </form>
+            )}
           </NeuCard>
         </div>
       </main>

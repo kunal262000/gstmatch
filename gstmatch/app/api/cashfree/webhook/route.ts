@@ -132,6 +132,13 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Database update failed' }, { status: 500 })
       }
 
+      await Promise.resolve().then(() =>
+        supabaseAdmin.from('user_activity').insert({
+          user_id: userId, email, action: 'payment',
+          detail: { plan: pack.tier, amount: pack.amount, mock: true },
+        })
+      ).catch((e: any) => console.warn('Failed to log activity:', e))
+
       console.log(`[MOCK] User ${userId} plan set to ${pack.tier}, expires ${expiresAt}`)
       return NextResponse.json({ success: true, message: `Mock status updated to ${pack.tier}` })
     }
@@ -166,6 +173,17 @@ export async function POST(req: Request) {
         console.error('Database update error in Cashfree webhook:', error)
         return NextResponse.json({ error: 'Database update failed' }, { status: 500 })
       }
+
+      await Promise.resolve().then(() =>
+        supabaseAdmin.from('user_activity').insert({
+          user_id: userId, email: userEmail, action: 'payment',
+          detail: {
+            plan: resolved.tier,
+            amount: Number(payload?.data?.order?.order_amount) || null,
+            order_id: payload?.data?.order?.order_id || null,
+          },
+        })
+      ).catch((e: any) => console.warn('Failed to log activity:', e))
 
       console.log(`User ${userId} plan updated to ${resolved.tier} via Cashfree Webhook (expires ${expiresAt})`)
     }

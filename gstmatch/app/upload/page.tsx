@@ -75,6 +75,19 @@ export default function UploadPage() {
         prFile, gstrFile, `${month} ${year}`, gstin, businessName, userId
       )
       setReconCount(c => c + 1)
+
+      // Log the reconciliation for the Admin activity dashboard (best-effort).
+      if (userId) {
+        Promise.resolve().then(() =>
+          supabase.from('user_activity').insert({
+            user_id: userId,
+            email: null,
+            action: 'upload',
+            detail: { jobId, period: `${month} ${year}`, gstin },
+          })
+        ).catch((e: any) => console.warn('Failed to log activity:', e))
+      }
+
       router.push(`/results/${jobId}`)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')

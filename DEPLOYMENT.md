@@ -177,6 +177,39 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
 ---
 
+## Sharing one Cashfree account across multiple products
+
+If GSTMatch and another product share the **same Cashfree App ID** (same account), each order
+must tell Cashfree **which webhook URL to notify** — otherwise all webhooks go to whichever URL is
+set as the app's *default* (one default per app), leaving the other product silently un-upgraded.
+
+### How GSTMatch handles this
+`app/api/cashfree/session/route.ts` sets a **per-order** webhook URL in `order_meta.notify_url`:
+
+```js
+order_meta: {
+  return_url:  `${origin}/payment/result?order_id={order_id}`,
+  notify_url:  `${origin}/api/cashfree/webhook`,
+}
+```
+
+So every GSTMatch order notifies **GSTMatch's** webhook (`/api/cashfree/webhook`) regardless of the
+dashboard's default webhook. Your other product will keep working as long as **it** also sends its
+own `notify_url` (or is intentionally using the dashboard default).
+
+### Production checklist for this setup
+- [ ] `notify_url` in the Create Order body points to GSTMatch's webhook (done in code)
+- [ ] `CASHFREE_WEBHOOK_SECRET` is set in Vercel and matches the Cashfree webhook endpoint's signing key
+- [ ] `CASHFREE_VERIFY_WEBHOOK=true` (so production plan upgrades are not skipped)
+- [ ] `https://gstmatch-six.vercel.app/api/cashfree/webhook` is reachable (whitelisted)
+- [ ] Your other product sets its **own** `notify_url` (so it doesn't inherit GSTMatch's)
+
+> **Note:** In production, the webhook route is *fail-closed* — if `CASHFREE_WEBHOOK_SECRET` is not
+> set (or the HMAC signature doesn't verify), the plan upgrade is **skipped**. Money can still be
+> collected, so always keep the secret configured and matching.
+
+---
+
 ## Security Features Implemented
 
 ### 1. Security Headers (next.config.js)

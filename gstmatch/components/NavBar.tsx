@@ -16,20 +16,34 @@ export default function NavBar() {
   const path = usePathname()
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
+      const u = session?.user ?? null
+      setUser(u)
+      if (u) {
+        fetch('/api/admin/me')
+          .then((r) => r.json())
+          .then((d) => setIsAdmin(Boolean(d.isAdmin)))
+          .catch(() => setIsAdmin(false))
+      }
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+      const u = session?.user ?? null
+      setUser(u)
+      if (!u) setIsAdmin(false)
     })
 
     return () => {
       subscription.unsubscribe()
     }
   }, [])
+
+  const tabs = isAdmin
+    ? [...TABS, { label: 'Admin', href: '/admin' }]
+    : TABS
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -73,7 +87,7 @@ export default function NavBar() {
         boxShadow: 'inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light)',
         background: 'var(--neu-bg)',
       }}>
-        {TABS.map(tab => {
+        {tabs.map(tab => {
           const active = path === tab.href
           return (
             <Link key={tab.href} href={tab.href} style={{
