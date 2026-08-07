@@ -35,26 +35,28 @@ export default function UploadPage() {
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (user) {
-        setUserId(user.id)
-        try {
-          const status = await fetchPlanStatus(supabase, user.id)
-          setPlan(status.effectivePlan)
-          setPlanExpired(status.plan !== 'free' && !status.active)
+      if (!user) {
+        router.push('/auth')
+        return
+      }
+      setUserId(user.id)
+      try {
+        const status = await fetchPlanStatus(supabase, user.id)
+        setPlan(status.effectivePlan)
+        setPlanExpired(status.plan !== 'free' && !status.active)
 
-          if (status.effectivePlan === 'free') {
-            const { count } = await supabase
-              .from('reconciliation_results')
-              .select('id', { count: 'exact', head: true })
-              .eq('user_id', user.id)
-            setReconCount(count ?? 0)
-          }
-        } catch (err) {
-          console.error('Error checking usage limit:', err)
+        if (status.effectivePlan === 'free') {
+          const { count } = await supabase
+            .from('reconciliation_results')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+          setReconCount(count ?? 0)
         }
+      } catch (err) {
+        console.error('Error checking usage limit:', err)
       }
     })
-  }, [])
+  }, [router])
 
   const FREE_RECON_LIMIT = 2
   const limitReached   = plan === 'free' && reconCount >= FREE_RECON_LIMIT
