@@ -111,8 +111,11 @@ export default function PricingPage() {
 
         cashfree.checkout(checkoutOptions).then((result: any) => {
           if (result.error) {
-            setError(result.error.message)
+            setError(result.error.message || 'Unable to open the Cashfree payment window.')
           }
+        }).catch((coErr: any) => {
+          console.error('Cashfree checkout failed:', coErr)
+          setError(coErr?.message || 'Unable to open the Cashfree payment window. Please try again.')
         })
       }
     } catch (err: any) {

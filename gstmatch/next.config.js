@@ -40,10 +40,10 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com data:",
               "img-src 'self' data: https:",
-              "connect-src 'self' https://*.supabase.co https://api.cashfree.com https://sandbox.cashfree.com https://*.onrender.com",
-              "frame-src https://js.stripe.com https://sdk.cashfree.com",
+              "connect-src 'self' https://*.supabase.co https://api.cashfree.com https://sandbox.cashfree.com https://payments.cashfree.com https://payments-test.cashfree.com https://*.onrender.com",
+              "frame-src https://js.stripe.com https://sdk.cashfree.com https://api.cashfree.com https://sandbox.cashfree.com https://payments.cashfree.com https://payments-test.cashfree.com",
               "base-uri 'self'",
-              "form-action 'self'"
+              "form-action 'self' https://api.cashfree.com https://sandbox.cashfree.com https://payments.cashfree.com https://payments-test.cashfree.com https://sdk.cashfree.com"
             ].join('; ')
           }
         ]
