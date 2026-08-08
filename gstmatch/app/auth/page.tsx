@@ -1,14 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
 import NavBar from '@/components/NavBar'
 import NeuCard from '@/components/ui/NeuCard'
 import NeuButton from '@/components/ui/NeuButton'
 import { supabase } from '@/lib/supabase'
 
 export default function AuthPage() {
-  const router = useRouter()
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -17,23 +15,38 @@ export default function AuthPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
+  // We redirect via a full page navigation (not Next's router) after auth. The
+  // Supabase SSR session lives in cookies; a client-side router transition can
+  // race those fresh cookies, so middleware (which guards /dashboard) doesn't see
+  // the user yet and bounces us back to /auth. A full navigation resends every
+  // cookie, letting the middleware allow /dashboard. The ref prevents a double
+  // jump when both the sign-in handler and the auth listener try to redirect.
+  const didRedirect = useRef(false)
+  const goDashboard = () => {
+    if (!didRedirect.current) {
+      didRedirect.current = true
+      window.location.assign('/dashboard')
+    }
+  }
+
   useEffect(() => {
     // If a session already exists — e.g. returning from the email-verification link,
     // or already signed in — go straight to the dashboard.
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        router.replace('/dashboard')
+        goDashboard()
       }
     })
     // Also catch the moment the email-confirmation / sign-in completes while on
     // this page (the one-shot getSession above can race the token exchange).
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        router.replace('/dashboard')
+        goDashboard()
       }
     })
     return () => sub.subscription.unsubscribe()
-  }, [router])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Forgot password ──────────────────────────────
   const [resetMode, setResetMode] = useState(false)
@@ -93,9 +106,7 @@ export default function AuthPage() {
         Promise.resolve().then(() =>
           supabase.from('user_activity').insert({ user_id: userId, email, action: 'signup', detail: {} })
         ).catch((e: any) => console.warn('Failed to log signup:', e))
-        setTimeout(() => {
-          router.push('/dashboard')
-        }, 1500)
+        setTimeout(() => goDashboard(), 1500)
       } else {
         setSuccess('Verification link sent to email! Please check your inbox.')
       }
@@ -109,9 +120,7 @@ export default function AuthPage() {
         setError(signInErr.message)
       } else {
         setSuccess('Logged in successfully! Redirecting...')
-        setTimeout(() => {
-          router.push('/dashboard')
-        }, 1000)
+        setTimeout(() => goDashboard(), 1000)
       }
     }
 

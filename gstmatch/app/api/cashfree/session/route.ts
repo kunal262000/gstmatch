@@ -30,10 +30,12 @@ export async function POST(req: Request) {
       })
     }
 
-    // Cashfree's Create Order API requires a real 10-digit customer phone.
-    const cleanPhone = (phone || '').replace(/\D/g, '')
+    // Cashfree's Create Order API requires a 10-digit customer phone. The live
+    // customer can enter/confirm their number on the Cashfree payment wall, so
+    // fall back to a placeholder when none was provided via the client.
+    let cleanPhone = (phone || '').replace(/\D/g, '')
     if (!/^\d{10}$/.test(cleanPhone)) {
-      return NextResponse.json({ error: 'A valid 10-digit mobile number is required for checkout.' }, { status: 400 })
+      cleanPhone = '9999999999'
     }
 
     const orderId = `order_${userId.substring(0, 8)}_${Date.now()}`
