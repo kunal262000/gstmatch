@@ -38,21 +38,29 @@ export async function startReconciliation(
 // ─── Helpers ────────────────────────────────────
 // Attach the current user's Supabase access token so backend routes gated by
 // JWT ownership checks (e.g. current_user_or_401) can authorize the request.
+// If the token isn't in the SSR cookie yet (client-side nav race), refresh it so
+// protected fetch calls don't 401 on the deployed site.
 async function authHeader(): Promise<HeadersInit> {
   const { data: { session } } = await supabase.auth.getSession()
-  return session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}
+  if (session?.access_token) {
+    return { Authorization: `Bearer ${session.access_token}` }
+  }
+  const { data: { session: refreshed } } = await supabase.auth.refreshSession()
+  return refreshed?.access_token ? { Authorization: `Bearer ${refreshed.access_token}` } : {}
 }
 
 // ─── Poll for result by job ID ────────────────
 export async function getResult(jobId: string): Promise<ReconciliationResult> {
   const res = await fetch(`${API_URL}/api/results/${jobId}`, {
     headers: await authHeader(),
+    cache: 'no-store',
   })
 
   if (!res.ok) {
-    if (res.status === 401) throw new Error('Please log in to view this result')
-    if (res.status === 404) throw new Error('Result not found')
-    throw new Error('Failed to fetch result')
+    if (res.status === 401) throw new Error(`Please log in to view this result (job ${jobId})`)
+    if (res.status === 403) throw new Error('You do not have access to this result')
+    if (res.status === 404) throw new Error(`Result not found for job ${jobId}`)
+    throw new Error(`Failed to fetch result (HTTP ${res.status}, job ${jobId})`)
   }
 
   return res.json()

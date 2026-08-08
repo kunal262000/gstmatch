@@ -45,9 +45,26 @@ export default function ResultsPage() {
 
   useEffect(() => {
     if (id === 'demo') { setData(DEMO_DATA); return }
-    getResult(id)
-      .then(setData)
-      .catch(e => setErr(e.message))
+    // A deployed backend (e.g. Render) can be slow to cold-start or momentarily
+    // miss right after save, so retry a couple times before giving up.
+    let cancelled = false
+    const attempts = 3
+    ;(async () => {
+      for (let i = 0; i < attempts; i++) {
+        try {
+          const d = await getResult(id)
+          if (!cancelled) setData(d)
+          return
+        } catch (e) {
+          if (i === attempts - 1) {
+            if (!cancelled) setErr((e as Error).message)
+          } else {
+            await new Promise(r => setTimeout(r, 1500))
+          }
+        }
+      }
+    })()
+    return () => { cancelled = true }
   }, [id])
 
   if (err) return (
