@@ -61,6 +61,8 @@ CREATE POLICY "Users read own profile" ON public.users
 ```
 
 > **Existing project?** If you created these tables before plan-expiry tracking was added, run the migration in `gstmatch/supabase/migrations/0002_plan_expires_at.sql` to add the `plan_expires_at` column and the read policy.
+>
+> **Easier option:** run the idempotent migrations in `gstmatch/supabase/migrations/` in filename order instead of the inline SQL above — they create the `reconciliation_results` table (0001), the `users` table + plan-expiry + policies (0002), and the admin activity log (0003). The `reconciliation_results` table **must exist** or results are only kept in memory and a backend restart between save and read produces "Result not found".
 
 5. Go to **Authentication → Settings** and add your Vercel URL to **Redirect URLs**
 
