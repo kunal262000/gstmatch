@@ -26,9 +26,15 @@ export const metadata: Metadata = {
     'Purchase register matching',
     'GST compliance MSME',
     'GST match AI',
+    'Tally GSTR-2B matching',
+    'Zoho Books GST matching',
+    'CA GST software',
   ],
   alternates: {
     canonical: SITE_URL,
+    types: {
+      'application/rss+xml': `${SITE_URL}/feed.xml`,
+    },
   },
   openGraph: {
     type: 'website',
@@ -96,6 +102,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        <link rel="alternate" type="application/rss+xml" title="GSTMatch Blog RSS Feed" href="/feed.xml" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(rootJsonLd) }}
@@ -110,19 +117,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           background: 'var(--neu-bg)',
           padding: '26px 24px 30px',
         }}>
-          <div style={{ maxWidth: 840, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ maxWidth: 880, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
               <div>
                 <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)' }}>GSTMatch</span>
                 <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 8 }}>— GST Reconciliation Made Simple</span>
               </div>
-              <nav style={{ display: 'flex', gap: 18, fontSize: 13, flexWrap: 'wrap', fontWeight: 500 }}>
+              <nav style={{ display: 'flex', gap: 16, fontSize: 13, flexWrap: 'wrap', fontWeight: 500 }}>
                 <a href="/" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>Home</a>
                 <a href="/pricing" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>Pricing</a>
                 <a href="/blog" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 700 }}>Blogs</a>
+                <a href="/for-cas" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>For CAs</a>
+                <a href="/for/tally-users" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>Tally</a>
+                <a href="/for/zoho-users" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>Zoho Books</a>
                 <a href="/terms" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>Terms</a>
                 <a href="/privacy" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>Privacy</a>
-                <a href="/refunds" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>Refunds &amp; Cancellations</a>
+                <a href="/refunds" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>Refunds</a>
                 <a href="/contact" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>Contact Us</a>
               </nav>
             </div>
