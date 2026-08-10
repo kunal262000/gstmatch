@@ -102,6 +102,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        {/* Google Search Console site verification.
+            Set NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION in .env.local / Vercel to the
+            content value Google gives you (e.g. "<meta name=\"google-site-verification\"
+            content=\"ABCDEF...\">"), or verify via DNS and leave this unset. */}
+        {process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION && (
+          <meta
+            name="google-site-verification"
+            content={process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION}
+          />
+        )}
         <link rel="alternate" type="application/rss+xml" title="GSTMatch Blog RSS Feed" href="/feed.xml" />
         <script
           type="application/ld+json"
