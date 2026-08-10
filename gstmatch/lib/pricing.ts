@@ -4,6 +4,9 @@
 
 export type Tier = 'starter' | 'growth' | 'deluxe'
 
+export const FREE_RECON_LIMIT = 2
+
+
 export interface Pack {
   tier: Tier
   amount: number // INR charged once at checkout

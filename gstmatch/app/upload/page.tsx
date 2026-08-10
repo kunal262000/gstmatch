@@ -8,7 +8,8 @@ import UploadZone from '@/components/UploadZone'
 import NeuButton from '@/components/ui/NeuButton'
 import { startReconciliation } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
-import { fetchPlanStatus } from '@/lib/pricing'
+import { fetchPlanStatus, FREE_RECON_LIMIT } from '@/lib/pricing'
+
 
 const MONTHS = [
   'January','February','March','April','May','June',
@@ -58,8 +59,8 @@ export default function UploadPage() {
     })
   }, [router])
 
-  const FREE_RECON_LIMIT = 2
   const limitReached   = plan === 'free' && reconCount >= FREE_RECON_LIMIT
+
   const remainingRuns  = Math.max(FREE_RECON_LIMIT - reconCount, 0)
 
   const isValidGSTIN = (val: string) => {

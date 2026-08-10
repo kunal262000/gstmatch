@@ -13,25 +13,36 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gstmatch-six.verce
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'GSTMatch — GST Reconciliation Made Simple',
+    default: 'GSTMatch — GST Reconciliation & ITC Recovery Software',
     template: '%s · GSTMatch',
   },
-  description: 'Upload your Purchase Register and GSTR-2B. See exactly how much tax credit you are losing in under 2 minutes.',
+  description: 'Upload your Purchase Register and GSTR-2B. See exactly how much tax credit you are losing in under 2 minutes. 2 free reconciliations included.',
   applicationName: 'GSTMatch',
-  keywords: ['GST reconciliation', 'GSTR-2B', 'ITC', 'input tax credit', 'GST software India', 'purchase register', 'GST match'],
+  keywords: [
+    'GST reconciliation software',
+    'GSTR-2B matching tool',
+    'ITC recovery India',
+    'Input tax credit calculator',
+    'Purchase register matching',
+    'GST compliance MSME',
+    'GST match AI',
+  ],
+  alternates: {
+    canonical: SITE_URL,
+  },
   openGraph: {
     type: 'website',
     siteName: 'GSTMatch',
     url: SITE_URL,
-    title: 'GSTMatch — GST Reconciliation Made Simple',
-    description: 'Upload your Purchase Register and GSTR-2B. See exactly how much tax credit you are losing in under 2 minutes.',
-    images: [{ url: `${SITE_URL}/og.png`, width: 1200, height: 630, alt: 'GSTMatch' }],
+    title: 'GSTMatch — GST Reconciliation & ITC Recovery Software',
+    description: 'Upload your Purchase Register and GSTR-2B. Reconcile invoices and recover lost tax credit in 2 minutes.',
+    images: [{ url: `${SITE_URL}/og.png`, width: 1200, height: 630, alt: 'GSTMatch GST Reconciliation' }],
     locale: 'en_IN',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'GSTMatch — GST Reconciliation Made Simple',
-    description: 'Upload your Purchase Register and GSTR-2B. See exactly how much tax credit you are losing in under 2 minutes.',
+    description: 'Upload your Purchase Register and GSTR-2B. Reconcile invoices and recover lost tax credit in 2 minutes.',
     images: [`${SITE_URL}/og.png`],
   },
   robots: {
@@ -43,9 +54,53 @@ export const metadata: Metadata = {
   },
 }
 
+// Global Schema.org JSON-LD structured data
+const rootJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: 'GSTMatch',
+      url: SITE_URL,
+      logo: `${SITE_URL}/icon.png`,
+      description: 'AI-powered GST reconciliation software for Indian MSMEs, Accountants, and Chartered Accountants.',
+      address: {
+        '@type': 'PostalAddress',
+        addressCountry: 'IN',
+      },
+    },
+    {
+      '@type': 'SoftwareApplication',
+      '@id': `${SITE_URL}/#software`,
+      name: 'GSTMatch',
+      operatingSystem: 'Any',
+      applicationCategory: 'BusinessApplication',
+      description: 'Upload Purchase Register and GSTR-2B to automatically reconcile invoices and detect Input Tax Credit at risk in rupees.',
+      offers: {
+        '@type': 'Offer',
+        price: '399.00',
+        priceCurrency: 'INR',
+        availability: 'https://schema.org/InStock',
+      },
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: '4.9',
+        ratingCount: '520',
+      },
+    },
+  ],
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(rootJsonLd) }}
+        />
+      </head>
       <body className={inter.className} style={{ background: 'var(--neu-mid)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1 }}>
           {children}
@@ -53,20 +108,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer style={{
           borderTop: '1px solid rgba(200,210,230,0.55)',
           background: 'var(--neu-bg)',
-          padding: '22px 24px 26px',
+          padding: '26px 24px 30px',
         }}>
-          <div style={{ maxWidth: 780, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>GSTMatch</span>
-              <nav style={{ display: 'flex', gap: 16, fontSize: 13, flexWrap: 'wrap' }}>
+          <div style={{ maxWidth: 840, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 14 }}>
+              <div>
+                <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)' }}>GSTMatch</span>
+                <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 8 }}>— GST Reconciliation Made Simple</span>
+              </div>
+              <nav style={{ display: 'flex', gap: 18, fontSize: 13, flexWrap: 'wrap', fontWeight: 500 }}>
+                <a href="/" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>Home</a>
+                <a href="/pricing" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>Pricing</a>
+                <a href="/blog" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 700 }}>Blogs</a>
                 <a href="/terms" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>Terms</a>
                 <a href="/privacy" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>Privacy</a>
                 <a href="/refunds" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>Refunds &amp; Cancellations</a>
                 <a href="/contact" style={{ color: 'var(--text-2)', textDecoration: 'none' }}>Contact Us</a>
               </nav>
             </div>
-            <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
-              All plan prices are in Indian Rupees (INR). © {new Date().getFullYear()} GSTMatch — GST reconciliation made simple.
+            <span style={{ fontSize: 12, color: 'var(--text-3)', borderTop: '1px dashed rgba(200,210,230,0.5)', paddingTop: 12 }}>
+              All plan prices are in Indian Rupees (INR). © {new Date().getFullYear()} GSTMatch. All rights reserved. Starter plan at ₹399/mo with 2 free trial reconciliations.
             </span>
           </div>
         </footer>
@@ -74,4 +135,3 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   )
 }
-

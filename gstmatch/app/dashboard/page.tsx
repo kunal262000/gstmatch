@@ -8,7 +8,7 @@ import NeuCard from '@/components/ui/NeuCard'
 import NeuButton from '@/components/ui/NeuButton'
 import { supabase } from '@/lib/supabase'
 import { ReconciliationResult } from '@/lib/types'
-import { fetchPlanStatus, formatExpiryDate, type PlanStatus } from '@/lib/pricing'
+import { fetchPlanStatus, formatExpiryDate, type PlanStatus, FREE_RECON_LIMIT } from '@/lib/pricing'
 
 interface DashboardRow {
     id:         string
@@ -18,9 +18,8 @@ interface DashboardRow {
     data:       ReconciliationResult
 }
 
-const FREE_RECON_LIMIT = 2
-
 export default function DashboardPage() {
+
     const router = useRouter()
     const [rows, setRows] = useState<DashboardRow[]>([])
     const [loading, setLoading] = useState(true)

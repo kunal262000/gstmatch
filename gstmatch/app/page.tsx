@@ -1,5 +1,9 @@
 import Link from 'next/link'
 import NavBar from '@/components/NavBar'
+import HowItWorks from '@/components/HowItWorks'
+import Testimonials from '@/components/Testimonials'
+import FAQSection from '@/components/FAQSection'
+import { FAQS } from '@/lib/faqs'
 
 const FEATURES = [
   {
@@ -35,11 +39,30 @@ const STATS = [
 ]
 
 export default function LandingPage() {
+  // Schema.org FAQPage structured data for Google search rich snippets
+  const faqJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQS.map((f) => ({
+      '@type': 'Question',
+      name: f.q,
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: f.a,
+      },
+    })),
+  }
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
+
       <NavBar />
 
-      <main className="page-container">
+      <main className="page-container" style={{ paddingBottom: 48 }}>
         {/* ── Hero ── */}
         <section style={{ textAlign: 'center', padding: '40px 0 28px' }}>
           <div style={{
@@ -114,20 +137,26 @@ export default function LandingPage() {
           ))}
         </div>
 
+        {/* ── How It Works Section ── */}
+        <HowItWorks />
+
+        {/* ── Testimonials Section ── */}
+        <Testimonials />
+
         {/* ── Pricing CTA ── */}
         <div className="neu-raised" style={{
-          padding: '32px 28px', textAlign: 'center', background: 'var(--neu-bg)',
+          padding: '32px 28px', textAlign: 'center', background: 'var(--neu-bg)', margin: '48px 0',
         }}>
           <div style={{ fontSize: 'var(--fs-h2)', fontWeight: 700, color: 'var(--text-1)', marginBottom: 8 }}>
             Start free today
           </div>
           <div style={{ fontSize: 14, color: 'var(--text-2)', marginBottom: 24 }}>
-            1 free reconciliation • No credit card needed • Results in 2 minutes
+            2 free reconciliations • No credit card needed • Results in 2 minutes
           </div>
 
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
             {[
-              { plan: 'Starter', price: '₹299/mo', desc: '1 GSTIN • 500 invoices/month' },
+              { plan: 'Starter', price: '₹399/mo', desc: '1 GSTIN • 500 invoices/month' },
               { plan: 'Growth',  price: '₹699/mo', desc: '3 GSTINs • 2000 invoices/month' },
             ].map(p => (
               <div key={p.plan} className="neu-flat" style={{ padding: '18px 28px', minWidth: 160 }}>
@@ -143,6 +172,9 @@ export default function LandingPage() {
             Try it free →
           </Link>
         </div>
+
+        {/* ── FAQ Section ── */}
+        <FAQSection />
       </main>
     </>
   )

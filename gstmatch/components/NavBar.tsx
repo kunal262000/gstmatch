@@ -10,7 +10,9 @@ const TABS = [
   { label: 'Upload', href: '/upload' },
   { label: 'Dashboard', href: '/dashboard' },
   { label: 'Pricing', href: '/pricing' },
+  { label: 'Blog', href: '/blog' },
 ]
+
 
 export default function NavBar() {
   const path = usePathname()
