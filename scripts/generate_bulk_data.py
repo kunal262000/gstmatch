@@ -2,14 +2,16 @@
 Generate a larger test dataset for performance testing.
 
 Creates:
-  - sample-data/bulk_purchase_register.csv  (150 invoices)
-  - sample-data/bulk_gstr2b.json            (150 invoices: 140 matching + 10 extra)
+  - sample-data/bulk_purchase_register.csv  (N invoices)
+  - sample-data/bulk_gstr2b.json            (N invoices: (N-10) matching + 10 extra)
 
 Run with:
-    python scripts/generate_bulk_data.py
+    python scripts/generate_bulk_data.py            # default N = 150
+    python scripts/generate_bulk_data.py 2000        # N = 2000
 """
 import json
 import random
+import sys
 from pathlib import Path
 
 random.seed(42)  # deterministic output
@@ -41,8 +43,9 @@ COMPANIES = [
     ("NTPC Limited",             "27AAACN5319X1Z7"),
 ]
 
-N_INVOICES = 150
-N_G2B_EXTRA = 10  # invoices in GSTR-2B but NOT in purchase register
+N_INVOICES = int(sys.argv[1]) if len(sys.argv) > 1 else 150
+N_G2B_MISSING = 10  # PR invoices randomly missing from GSTR-2B ("missing_in_gstr2b")
+N_G2B_EXTRA = 10    # invoices in GSTR-2B but NOT in purchase register ("missing_in_pr")
 
 # ── Build purchase register (150 rows) ────────────────────────────────────────
 header = "gstin,supplier name,invoice no,invoice date,taxable amount,igst,cgst,sgst,total\n"
@@ -83,7 +86,7 @@ for i in range(1, N_INVOICES + 1):
 
 # ── Build GSTR-2B: 140 of the 150 PR invoices + 10 extra ──────────────────────
 # Randomly drop 10 PR invoices to create "missing_in_gstr2b" category
-drop_idx = set(random.sample(range(N_INVOICES), 10))  # 10 invoices missing from GSTR-2B
+drop_idx = set(random.sample(range(N_INVOICES), N_G2B_MISSING))  # missing from GSTR-2B
 
 g2b_suppliers = {}
 
