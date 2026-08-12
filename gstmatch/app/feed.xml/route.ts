@@ -1,6 +1,6 @@
 import { BLOG_POSTS } from '@/lib/blogs'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gstmatch-six.vercel.app'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gstmatch.cyou'
 
 export async function GET() {
   const itemsXml = BLOG_POSTS.map((post) => {

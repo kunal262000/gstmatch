@@ -4,7 +4,7 @@ import Link from 'next/link'
 import NavBar from '@/components/NavBar'
 import { BLOG_POSTS, getBlogPostBySlug } from '@/lib/blogs'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gstmatch-six.vercel.app'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gstmatch.cyou'
 
 interface Props {
   params: {

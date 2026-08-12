@@ -4,7 +4,7 @@ import NavBar from '@/components/NavBar'
 import Testimonials from '@/components/Testimonials'
 import FAQSection from '@/components/FAQSection'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gstmatch-six.vercel.app'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gstmatch.cyou'
 
 export const metadata: Metadata = {
   title: 'GST Reconciliation Software for CAs & Tax Consultants — GSTMatch',

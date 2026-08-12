@@ -8,7 +8,7 @@ const inter = Inter({
   weight: ['400', '500', '600', '700', '800'],
 })
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gstmatch-six.vercel.app'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gstmatch.cyou'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
