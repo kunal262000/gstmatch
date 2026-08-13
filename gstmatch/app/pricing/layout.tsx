@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gstmatch.cyou'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.gstmatch.cyou'
 
 export const metadata: Metadata = {
   title: 'Pricing & Plans — GSTMatch',

@@ -203,7 +203,7 @@ own `notify_url` (or is intentionally using the dashboard default).
 - [ ] `notify_url` in the Create Order body points to GSTMatch's webhook (done in code)
 - [ ] `CASHFREE_WEBHOOK_SECRET` is set in Vercel and matches the Cashfree webhook endpoint's signing key
 - [ ] `CASHFREE_VERIFY_WEBHOOK=true` (so production plan upgrades are not skipped)
-- [ ] `https://gstmatch.cyou/api/cashfree/webhook` is reachable (whitelisted)
+- [ ] `https://www.gstmatch.cyou/api/cashfree/webhook` is reachable (whitelisted)
 - [ ] Your other product sets its **own** `notify_url` (so it doesn't inherit GSTMatch's)
 
 > **Note:** In production, the webhook route is *fail-closed* — if `CASHFREE_WEBHOOK_SECRET` is not

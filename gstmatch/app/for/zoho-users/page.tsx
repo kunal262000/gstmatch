@@ -4,7 +4,7 @@ import NavBar from '@/components/NavBar'
 import HowItWorks from '@/components/HowItWorks'
 import FAQSection from '@/components/FAQSection'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gstmatch.cyou'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.gstmatch.cyou'
 
 export const metadata: Metadata = {
   title: 'Zoho Books GSTR-2B Reconciliation Software — GSTMatch',

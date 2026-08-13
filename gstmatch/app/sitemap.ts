@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 import { BLOG_POSTS } from '@/lib/blogs'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://gstmatch.cyou'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.gstmatch.cyou'
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date()
