@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import { Inter } from 'next/font/google'
 import '../styles/neu.css'
 
@@ -9,6 +10,7 @@ const inter = Inter({
 })
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.gstmatch.cyou'
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID || 'G-DMHW9YYY1T'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -102,6 +104,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        {/* Google Analytics / Google tag (gtag.js) — runs after interaction */}
+        <Script
+          strategy="afterInteractive"
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+        />
+        <Script
+          id="gtag-init"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${GA_ID}');
+            `,
+          }}
+        />
         {/* Google Search Console site verification.
             Set NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION in .env.local / Vercel to the
             content value Google gives you (e.g. "<meta name=\"google-site-verification\"
