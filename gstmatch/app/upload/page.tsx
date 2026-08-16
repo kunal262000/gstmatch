@@ -222,6 +222,15 @@ export default function UploadPage() {
             </select>
           </div>
           <div>
+            <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, marginBottom: 6 }}>GSTIN</div>
+            <input
+              className="neu-input"
+              placeholder="Enter GSTIN"
+              value={gstin}
+              onChange={e => setGstin(e.target.value)}
+            />
+          </div>
+          <div>
             <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, marginBottom: 6 }}>Business name</div>
             <input
               className="neu-input"
