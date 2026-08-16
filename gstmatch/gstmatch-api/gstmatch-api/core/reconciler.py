@@ -20,7 +20,6 @@ from models.schemas import (
     InvoiceRow, InvoiceCategory, Supplier, SupplierStatus,
     ReconciliationResult, ReconciliationSummary,
 )
-import { extractGstinStateCode, getGstinStateName } from '../lib/types'
 
 # Indian State Codes (GSTIN first 2 digits) - All 36 States/UTs
 INDIAN_STATES = {
