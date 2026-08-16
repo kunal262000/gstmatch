@@ -20,7 +20,60 @@ from models.schemas import (
     InvoiceRow, InvoiceCategory, Supplier, SupplierStatus,
     ReconciliationResult, ReconciliationSummary,
 )
+import { extractGstinStateCode, getGstinStateName } from '../lib/types'
 
+# Indian State Codes (GSTIN first 2 digits) - All 36 States/UTs
+INDIAN_STATES = {
+    '01': 'Jammu & Kashmir',
+    '02': 'Himachal Pradesh',
+    '03': 'Punjab',
+    '04': 'Chandigarh',
+    '05': 'Uttarakhand',
+    '06': 'Haryana',
+    '07': 'Delhi',
+    '08': 'Rajasthan',
+    '09': 'Uttar Pradesh',
+    '10': 'Bihar',
+    '21': 'Sikkim',
+    '22': 'Arunachal Pradesh',
+    '23': 'Nagaland',
+    '24': 'Manipur',
+    '25': 'Mizoram',
+    '26': 'Tripura',
+    '27': 'Meghalaya',
+    '28': 'Assam',
+    '11': 'West Bengal',
+    '12': 'Jharkhand',
+    '13': 'Odisha',
+    '14': 'Chhattisgarh',
+    '15': 'Madhya Pradesh',
+    '16': 'Gujarat',
+    '17': 'Daman & Diu',
+    '18': 'Dadra & Nagar Haveli',
+    '19': 'Maharashtra',
+    '20': 'Karnataka',
+    '29': 'Kerala',
+    '30': 'Tamil Nadu',
+    '31': 'Puducherry',
+    '32': 'Andhra Pradesh',
+    '33': 'Telangana',
+    '34': 'Lakshadweep',
+    '35': 'Andaman & Nicobar',
+    '36': 'Sikkim',
+    '37': 'Goa',
+}
+
+def extract_gstin_state_code(gstin: str) -> str | None:
+    """Extract 2-digit state code from GSTIN (first 2 characters)."""
+    if not gstin or len(gstin) != 15:
+        return None
+    state_code = gstin[:2]
+    return INDIAN_STATES.get(state_code, state_code)
+
+def get_gstin_state_name(gstin: str) -> str:
+    """Get full state/UT name from GSTIN."""
+    state_code = extract_gstin_state_code(gstin)
+    return INDIAN_STATES.get(state_code, 'Unknown')
 AMOUNT_TOLERANCE = 2.0   # ₹2 rounding tolerance for exact match
 FUZZY_THRESHOLD  = 85    # minimum similarity score for fuzzy match
 
@@ -219,6 +272,8 @@ def reconcile(
 
     suppliers: List[Supplier] = []
     for g, s in supplier_map.items():
+        state_code = extract_gstin_state_code(g)
+        state_name = get_gstin_state_name(g)
         if s["has_missing"]:
             status = SupplierStatus.not_filed
         elif s["has_mismatch"]:
@@ -227,11 +282,13 @@ def reconcile(
             status = SupplierStatus.filed
 
         suppliers.append(Supplier(
-            name         = s["name"],
-            gstin        = g,
-            invoiceCount = s["invoiceCount"],
-            status       = status,
-            itcAtRisk    = round(s["itcAtRisk"], 2),
+            name             = s["name"],
+            gstin            = g,
+            invoiceCount     = s["invoiceCount"],
+            status           = status,
+            itcAtRisk        = round(s["itcAtRisk"], 2),
+            stateCode        = state_code,
+            stateName        = state_name,
         ))
 
     suppliers.sort(key=lambda x: (-x.itcAtRisk, x.name))

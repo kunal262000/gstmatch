@@ -28,12 +28,12 @@ const DEMO_DATA: ReconciliationResult = {
     complianceScore:   89,
   },
   suppliers: [
-    { name: 'Mehta Fabrics Pvt Ltd',  gstin: '27AABCM1234F1Z5', invoiceCount: 8,  status: 'not_filed', itcAtRisk: 34200 },
-    { name: 'Rajesh Traders',          gstin: '24XYZRT5678G2Y6', invoiceCount: 12, status: 'filed',     itcAtRisk: 0     },
-    { name: 'Patel Distributors',      gstin: '29ACDPD9012H3W7', invoiceCount: 3,  status: 'not_filed', itcAtRisk: 18750 },
-    { name: 'Kumar Enterprises',       gstin: '06AACKM2345J4V8', invoiceCount: 5,  status: 'mismatch',  itcAtRisk: 9800  },
-    { name: 'Sharma & Sons',           gstin: '09AABCS6789K5U9', invoiceCount: 22, status: 'filed',     itcAtRisk: 0     },
-    { name: 'Verma Wholesale Pvt Ltd', gstin: '07AADVW3456L5T0', invoiceCount: 7,  status: 'not_filed', itcAtRisk: 0     },
+    { name: 'Mehta Fabrics Pvt Ltd',  gstin: '27AABCM1234F1Z5', invoiceCount: 8,  status: 'not_filed', itcAtRisk: 34200, stateCode: '27', stateName: 'Meghalaya' },
+    { name: 'Rajesh Traders',          gstin: '24XYZRT5678G2Y6', invoiceCount: 12, status: 'filed',     itcAtRisk: 0,     stateCode: '24', stateName: 'Manipur' },
+    { name: 'Patel Distributors',      gstin: '29ACDPD9012H3W7', invoiceCount: 3,  status: 'not_filed', itcAtRisk: 18750, stateCode: '29', stateName: 'Kerala' },
+    { name: 'Kumar Enterprises',       gstin: '06AACKM2345J4V8', invoiceCount: 5,  status: 'mismatch',  itcAtRisk: 9800,  stateCode: '06', stateName: 'Haryana' },
+    { name: 'Sharma & Sons',           gstin: '09AABCS6789K5U9', invoiceCount: 22, status: 'filed',     itcAtRisk: 0,     stateCode: '09', stateName: 'Uttar Pradesh' },
+    { name: 'Verma Wholesale Pvt Ltd', gstin: '07AADVW3456L5T0', invoiceCount: 7,  status: 'not_filed', itcAtRisk: 0,     stateCode: '07', stateName: 'Delhi' },
   ],
   invoices: [],
 }

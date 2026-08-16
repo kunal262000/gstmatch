@@ -1,7 +1,10 @@
-import { ReconciliationResult, UploadResponse } from './types'
+import { ReconciliationResult, UploadResponse, Supplier } from './types'
 import { supabase } from './supabase'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+// Import state extraction functions
+import { extractGstinStateCode, getGstinStateName } from './types'
 
 // ─── Upload files and start reconciliation ────
 export async function startReconciliation(
@@ -74,9 +77,9 @@ export async function downloadExcel(jobId: string): Promise<void> {
   if (!res.ok) throw new Error('Download failed')
 
   const blob = await res.blob()
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href     = url
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
   a.download = `GST_Report_${jobId}.xlsx`
   a.click()
   URL.revokeObjectURL(url)
@@ -90,9 +93,9 @@ export async function downloadPDF(jobId: string): Promise<void> {
   if (!res.ok) throw new Error('Download failed')
 
   const blob = await res.blob()
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href     = url
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
   a.download = `GST_Summary_${jobId}.pdf`
   a.click()
   URL.revokeObjectURL(url)

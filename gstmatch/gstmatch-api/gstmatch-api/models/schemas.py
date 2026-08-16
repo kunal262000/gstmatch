@@ -31,11 +31,13 @@ class InvoiceRow(BaseModel):
 
 
 class Supplier(BaseModel):
-    name:         str
-    gstin:        str
-    invoiceCount: int
-    status:       SupplierStatus
-    itcAtRisk:    float
+    name:             str
+    gstin:            str
+    invoiceCount:     int
+    status:           SupplierStatus
+    itcAtRisk:        float
+    stateCode:        str   # 2-digit GSTIN state code
+    stateName:        str   # Full state/UT name
 
 
 class ReconciliationSummary(BaseModel):

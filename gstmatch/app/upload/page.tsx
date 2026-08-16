@@ -12,27 +12,27 @@ import { fetchPlanStatus, FREE_RECON_LIMIT } from '@/lib/pricing'
 
 
 const MONTHS = [
-  'January','February','March','April','May','June',
-  'July','August','September','October','November','December',
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ]
-const currentYear  = new Date().getFullYear()
-const YEARS        = [currentYear, currentYear - 1]
+const currentYear = new Date().getFullYear()
+const YEARS = [currentYear, currentYear - 1]
 
 export default function UploadPage() {
   const router = useRouter()
 
-  const [prFile,       setPrFile]       = useState<File | null>(null)
-  const [gstrFile,     setGstrFile]     = useState<File | null>(null)
-  const [month,        setMonth]        = useState(MONTHS[new Date().getMonth()])
-  const [year,         setYear]         = useState(String(currentYear))
-  const [gstin,        setGstin]        = useState('')
+  const [prFile, setPrFile] = useState<File | null>(null)
+  const [gstrFile, setGstrFile] = useState<File | null>(null)
+  const [month, setMonth] = useState(MONTHS[new Date().getMonth()])
+  const [year, setYear] = useState(String(currentYear))
+  const [gstin, setGstin] = useState('')
   const [businessName, setBusinessName] = useState('')
-  const [loading,      setLoading]      = useState(false)
-  const [error,        setError]        = useState('')
-  const [userId,       setUserId]       = useState<string | undefined>(undefined)
-  const [reconCount,   setReconCount]   = useState(0)
-  const [plan,         setPlan]         = useState('free')
-  const [planExpired,  setPlanExpired]  = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [userId, setUserId] = useState<string | undefined>(undefined)
+  const [reconCount, setReconCount] = useState(0)
+  const [plan, setPlan] = useState('free')
+  const [planExpired, setPlanExpired] = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -59,9 +59,9 @@ export default function UploadPage() {
     })
   }, [router])
 
-  const limitReached   = plan === 'free' && reconCount >= FREE_RECON_LIMIT
+  const limitReached = plan === 'free' && reconCount >= FREE_RECON_LIMIT
 
-  const remainingRuns  = Math.max(FREE_RECON_LIMIT - reconCount, 0)
+  const remainingRuns = Math.max(FREE_RECON_LIMIT - reconCount, 0)
 
   const isValidGSTIN = (val: string) => {
     return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(val)
@@ -158,9 +158,9 @@ export default function UploadPage() {
         {/* Steps */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 28 }}>
           {[
-            { n: '✓', label: 'Account',     done: true,  active: false },
-            { n: '2', label: 'Upload files', done: false, active: true  },
-            { n: '3', label: 'Results',      done: false, active: false },
+            { n: '✓', label: 'Account', done: true, active: false },
+            { n: '2', label: 'Upload files', done: false, active: true },
+            { n: '3', label: 'Results', done: false, active: false },
           ].map((step, i) => (
             <div key={step.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -232,24 +232,6 @@ export default function UploadPage() {
           </div>
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, marginBottom: 6 }}>Your GSTIN</div>
-          <input
-            className="neu-input"
-            placeholder="27AAAAA0000A1Z5"
-            value={gstin}
-            maxLength={15}
-            onChange={e => setGstin(e.target.value.toUpperCase())}
-            style={{ fontFamily: 'monospace', letterSpacing: '0.05em' }}
-          />
-          {gstin.length > 0 && !isValidGSTIN(gstin) && (
-            <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 5 }}>
-              GSTIN must match standard Indian format (e.g., 27AAAAA0000A1Z5)
-            </div>
-          )}
-        </div>
-
-        {/* Upload zones */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px,1fr))', gap: 16, marginBottom: 20 }}>
           <UploadZone
             label="Purchase Register"
