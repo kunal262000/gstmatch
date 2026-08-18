@@ -8,13 +8,15 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  new_count INTEGER;
 BEGIN
   UPDATE public.users
   SET usage_count = COALESCE(usage_count, 0) + 1
   WHERE id = user_id
-  RETURNING usage_count INTO STRICT usage_count;
+  RETURNING usage_count INTO new_count;
   
-  RETURN usage_count;
+  RETURN new_count;
 END;
 $$;
 
