@@ -18,7 +18,6 @@ export default function ContactPage() {
           <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-1)', marginBottom: 12 }}>Get in touch</h2>
           <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14, color: 'var(--text-2)' }}>
             <li><strong>Email:</strong> <a href="mailto:admin@gstmatch.cyou" style={{ color: 'var(--primary-dark)' }}>admin@gstmatch.cyou</a></li>
-            <li><strong>Email:</strong> <a href="mailto:admin@admin.com" style={{ color: 'var(--primary-dark)' }}>admin@admin.com</a></li>
             <li><strong>Business hours:</strong> Mon–Fri, 10:00 AM – 6:00 PM IST</li>
           </ul>
         </NeuCard>
