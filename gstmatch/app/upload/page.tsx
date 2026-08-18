@@ -81,12 +81,20 @@ export default function UploadPage() {
       )
       setReconCount(c => c + 1)
 
+      // Increment usage_count in users table for admin dashboard stats
+      if (userId) {
+        Promise.resolve().then(() =>
+          supabase.rpc('increment_usage_count', { user_id: userId })
+        ).catch((e: any) => console.warn('Failed to increment usage count:', e))
+      }
+
       // Log the reconciliation for the Admin activity dashboard (best-effort).
       if (userId) {
+        const { data: { user } } = await supabase.auth.getUser()
         Promise.resolve().then(() =>
           supabase.from('user_activity').insert({
             user_id: userId,
-            email: null,
+            email: user?.email ?? null,
             action: 'upload',
             detail: { jobId, period: `${month} ${year}`, gstin },
           })
