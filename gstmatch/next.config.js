@@ -2,6 +2,18 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  // Target modern browsers - remove legacy polyfills (~14kB savings)
+  compiler: {
+    // Remove console.log in production
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+
+  // Transpile only what's needed for modern browsers
+  experimental: {
+    // Enable optimized package imports
+    optimizePackageImports: ['@supabase/supabase-js', 'lucide-react'],
+  },
+
   // Security headers
   async headers() {
     return [

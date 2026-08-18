@@ -209,6 +209,7 @@ export default function UploadPage() {
               className="neu-input"
               value={month}
               onChange={e => setMonth(e.target.value)}
+              aria-label="Select Month"
             >
               {MONTHS.map(m => <option key={m}>{m}</option>)}
             </select>
@@ -219,6 +220,7 @@ export default function UploadPage() {
               className="neu-input"
               value={year}
               onChange={e => setYear(e.target.value)}
+              aria-label="Select Year"
             >
               {YEARS.map(y => <option key={y}>{y}</option>)}
             </select>

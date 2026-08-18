@@ -11,12 +11,12 @@
   --neu-dark:  #d6dde8;   /* soft shadow tint */
 
   /* Brand */
-  --primary:      #10b981;
-  --primary-dark: #059669;
+  --primary:      #059669;
+  --primary-dark: #047857;
   --primary-bg:   #d1fae5;
 
   /* Semantic */
-  --danger:     #ef4444;
+  --danger:     #dc2626;
   --danger-bg:  #fee2e2;
   --warning:    #f59e0b;
   --warning-bg: #fef3c7;
@@ -131,6 +131,17 @@ html, body {
   margin: 0 auto;
   padding: 24px 20px 48px;
   view-transition-name: main-content;
+  min-height: 500px; /* Reserve space to prevent CLS */
+}
+
+/* Prevent CLS from web fonts */
+@font-face {
+  font-family: 'Inter';
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Manrope';
+  font-display: swap;
 }
 
 /* ── View Transitions API animations ── */
