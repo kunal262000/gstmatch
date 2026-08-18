@@ -7,6 +7,7 @@ import NavBar from '@/components/NavBar'
 import NeuCard from '@/components/ui/NeuCard'
 import NeuButton from '@/components/ui/NeuButton'
 import TrustBadges from '@/components/TrustBadges'
+import ViewTransitionLink from '@/components/ViewTransitionLink'
 import { supabase } from '@/lib/supabase'
 import {
   TIERS,
@@ -264,9 +265,9 @@ export default function PricingPage() {
 
         {/* Back Link */}
         <div style={{ textAlign: 'center', marginTop: 32 }}>
-          <Link href="/upload" style={{ fontSize: 13, color: 'var(--text-2)', textDecoration: 'none', fontWeight: 600 }}>
+          <ViewTransitionLink href="/upload" style={{ fontSize: 13, color: 'var(--text-2)', textDecoration: 'none', fontWeight: 600 }}>
             ← Back to Upload
-          </Link>
+          </ViewTransitionLink>
         </div>
       </main>
     </>

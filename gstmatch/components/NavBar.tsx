@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import ViewTransitionLink from '@/components/ViewTransitionLink'
 
 const TABS = [
   { label: 'Home', href: '/' },
@@ -60,7 +61,7 @@ export default function NavBar() {
       position: 'sticky', top: 0, zIndex: 50,
     }}>
       {/* Logo */}
-      <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <ViewTransitionLink href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
         <img
           src="/logo.png"
           alt="GSTMatch logo"
@@ -81,7 +82,7 @@ export default function NavBar() {
             Reconcile<span style={{ color: '#22C55E' }}> ·</span> Recover<span style={{ color: '#22C55E' }}> ·</span> Maximize <span>ITC</span>.
           </div>
         </div>
-      </Link>
+      </ViewTransitionLink>
 
       {/* Tab pills */}
       <div style={{
@@ -92,7 +93,7 @@ export default function NavBar() {
         {tabs.map(tab => {
           const active = path === tab.href
           return (
-            <Link key={tab.href} href={tab.href} style={{
+            <ViewTransitionLink key={tab.href} href={tab.href} style={{
               padding: '7px 18px', borderRadius: 'var(--r-pill)', fontSize: 13,
               fontWeight: 500, textDecoration: 'none', transition: 'all 0.2s',
               color: active ? 'var(--primary)' : 'var(--text-3)',
@@ -102,7 +103,7 @@ export default function NavBar() {
                 : 'none',
             }}>
               {tab.label}
-            </Link>
+            </ViewTransitionLink>
           )
         })}
       </div>
@@ -142,12 +143,11 @@ export default function NavBar() {
             </button>
           </>
         ) : (
-          <Link href="/auth" className="neu-btn neu-btn-primary" style={{ padding: '9px 20px', fontSize: 13 }}>
+          <ViewTransitionLink href="/auth" className="neu-btn neu-btn-primary" style={{ padding: '9px 20px', fontSize: 13 }}>
             Log In →
-          </Link>
+          </ViewTransitionLink>
         )}
       </div>
     </nav>
   )
 }
-

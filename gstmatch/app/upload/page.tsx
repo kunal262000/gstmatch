@@ -7,6 +7,7 @@ import NavBar from '@/components/NavBar'
 import UploadZone from '@/components/UploadZone'
 import NeuButton from '@/components/ui/NeuButton'
 import TrustBadges from '@/components/TrustBadges'
+import ViewTransitionLink from '@/components/ViewTransitionLink'
 import { startReconciliation } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { fetchPlanStatus, FREE_RECON_LIMIT } from '@/lib/pricing'
@@ -150,9 +151,9 @@ export default function UploadPage() {
             borderRadius: 'var(--r-sm)', fontSize: 13, fontWeight: 600,
           }}>
             <span>⏳ Your subscription has expired — you&apos;re on the free plan. Renew to restore unlimited reconciliations.</span>
-            <Link href="/pricing" style={{ whiteSpace: 'nowrap', color: '#92400e', fontWeight: 700, textDecoration: 'underline' }}>
+            <ViewTransitionLink href="/pricing" style={{ whiteSpace: 'nowrap', color: '#92400e', fontWeight: 700, textDecoration: 'underline' }}>
               Renew Now →
-            </Link>
+            </ViewTransitionLink>
           </div>
         )}
 

@@ -4,6 +4,7 @@ import HowItWorks from '@/components/HowItWorks'
 import Testimonials from '@/components/Testimonials'
 import FAQSection from '@/components/FAQSection'
 import TrustBadges from '@/components/TrustBadges'
+import ViewTransitionLink from '@/components/ViewTransitionLink'
 import { FAQS } from '@/lib/faqs'
 
 const FEATURES = [
@@ -93,14 +94,14 @@ export default function LandingPage() {
           </p>
 
           <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link href="/upload" className="neu-btn neu-btn-primary"
+            <ViewTransitionLink href="/upload" className="neu-btn neu-btn-primary"
               style={{ padding: '14px 32px', fontSize: 15, fontWeight: 700 }}>
               Start free reconciliation →
-            </Link>
-            <Link href="/results/demo" className="neu-btn"
+            </ViewTransitionLink>
+            <ViewTransitionLink href="/results/demo" className="neu-btn"
               style={{ padding: '14px 24px', fontSize: 14, color: 'var(--text-2)' }}>
               View sample report
-            </Link>
+            </ViewTransitionLink>
           </div>
         </section>
 
@@ -168,10 +169,10 @@ export default function LandingPage() {
             ))}
           </div>
 
-          <Link href="/upload" className="neu-btn neu-btn-primary"
+          <ViewTransitionLink href="/upload" className="neu-btn neu-btn-primary"
             style={{ padding: '13px 36px', fontSize: 15, fontWeight: 700 }}>
             Try it free →
-          </Link>
+          </ViewTransitionLink>
           <TrustBadges />
         </div>
 
