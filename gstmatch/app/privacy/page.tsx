@@ -36,7 +36,7 @@ export default function PrivacyPage() {
             </section>
             <section>
               <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', marginBottom: 6 }}>6. Contact</h2>
-              <p>Privacy questions? Email <a href="mailto:support@gstmatch.in" style={{ color: 'var(--primary-dark)' }}>support@gstmatch.in</a>.</p>
+              <p>Privacy questions? Email <a href="mailto:admin@gstmatch.cyou" style={{ color: 'var(--primary-dark)' }}>admin@gstmatch.cyou</a>.</p>
             </section>
           </div>
         </NeuCard>

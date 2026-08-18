@@ -44,7 +44,7 @@ export default function TermsPage() {
             </section>
             <section>
               <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', marginBottom: 6 }}>8. Contact</h2>
-              <p>Questions about these terms? Contact us at <a href="mailto:support@gstmatch.in" style={{ color: 'var(--primary-dark)' }}>support@gstmatch.in</a>.</p>
+              <p>Questions about these terms? Contact us at <a href="mailto:admin@gstmatch.cyou" style={{ color: 'var(--primary-dark)' }}>admin@gstmatch.cyou</a>.</p>
             </section>
           </div>
         </NeuCard>

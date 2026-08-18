@@ -23,19 +23,19 @@ export default function RefundsPage() {
               <p>Because plan access to the Service is delivered instantly and is digital in nature, GSTMatch does not offer refunds for completed plan purchases. By completing a payment you agree to this no-refund policy.</p>
               <p style={{ marginTop: 8 }}>
                 Exception: if a payment was processed in error (for example, an accidental duplicate charge), please contact us at{' '}
-                <a href="mailto:support@gstmatch.in" style={{ color: 'var(--primary-dark)' }}>support@gstmatch.in</a>{' '}
+                <a href="mailto:admin@gstmatch.cyou" style={{ color: 'var(--primary-dark)' }}>admin@gstmatch.cyou</a>{' '}
                 and we will review your case within 7 business days.
               </p>
             </section>
             <section>
               <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', marginBottom: 6 }}>Cancellations</h2>
               <p>You may stop using the Service at any time. To cancel a recurring arrangement or request account deletion, please email{' '}
-                <a href="mailto:support@gstmatch.in" style={{ color: 'var(--primary-dark)' }}>support@gstmatch.in</a>{' '}
+                <a href="mailto:admin@gstmatch.cyou" style={{ color: 'var(--primary-dark)' }}>admin@gstmatch.cyou</a>{' '}
                 with the subject line &quot;Cancellation&quot;. Future access to paid features will end in line with your request; no pro-rata refunds are provided.</p>
             </section>
             <section>
               <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', marginBottom: 6 }}>Contact</h2>
-              <p>For any refund or cancellation queries, reach us at <a href="mailto:support@gstmatch.in" style={{ color: 'var(--primary-dark)' }}>support@gstmatch.in</a>.</p>
+              <p>For any refund or cancellation queries, reach us at <a href="mailto:admin@gstmatch.cyou" style={{ color: 'var(--primary-dark)' }}>admin@gstmatch.cyou</a>.</p>
             </section>
           </div>
         </NeuCard>
