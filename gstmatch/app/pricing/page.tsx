@@ -6,6 +6,7 @@ import Link from 'next/link'
 import NavBar from '@/components/NavBar'
 import NeuCard from '@/components/ui/NeuCard'
 import NeuButton from '@/components/ui/NeuButton'
+import TrustBadges from '@/components/TrustBadges'
 import { supabase } from '@/lib/supabase'
 import {
   TIERS,
@@ -257,6 +258,9 @@ export default function PricingPage() {
             )
           })}
         </div>
+
+        {/* Trust Signals */}
+        <TrustBadges />
 
         {/* Back Link */}
         <div style={{ textAlign: 'center', marginTop: 32 }}>

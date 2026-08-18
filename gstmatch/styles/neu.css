@@ -26,7 +26,7 @@
   /* Text */
   --text-1: #1e293b;
   --text-2: #475569;
-  --text-3: #94a3b8;
+  --text-3: #5e6e7d;
 
   /* Radius */
   --r-sm:   10px;
@@ -132,6 +132,67 @@ html, body {
   padding: 24px 20px 48px;
 }
 
+/* ── Focus visible for keyboard accessibility ── */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Remove default focus rings from our custom elements since we handle them */
+.neu-btn:focus,
+.neu-input:focus,
+.neu-select:focus,
+nav a:focus,
+a:focus {
+  outline: none;
+}
+
+/* Apply custom focus-visible to interactive elements */
+.neu-btn:focus-visible,
+.neu-input:focus-visible,
+.neu-select:focus-visible,
+nav a:focus-visible,
+a[class*="neu"]:focus-visible,
+.Link:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Primary button focus-visible needs white outline on colored bg */
+.neu-btn-primary:focus-visible {
+  outline-color: #fff;
+  outline-offset: 3px;
+}
+
+/* ── Mobile responsive adjustments ── */
+@media (max-width: 480px) {
+  .page-container {
+    padding: 16px 12px 32px;
+  }
+  
+  /* Stack feature cards */
+  main .page-container > div[style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+  }
+  
+  /* Reduce hero padding */
+  main .page-container > section[style*="textAlign"] {
+    padding: 24px 0 16px !important;
+  }
+  
+  /* Stack CTA buttons */
+  main .page-container > section[style*="textAlign"] div[style*="flex"] {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  main .page-container > section[style*="textAlign"] .neu-btn {
+    width: 100%;
+    max-width: 280px;
+  }
+}
+
 /* ── Pricing grid: all 3 plan cards on one line on desktop, stacked on mobile ── */
 .pricing-grid {
   display: grid;
@@ -142,5 +203,41 @@ html, body {
 @media (min-width: 800px) {
   .pricing-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ── Trust badges ── */
+.trust-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 16px;
+}
+.trust-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: var(--neu-bg);
+  border-radius: var(--r-pill);
+  box-shadow: 2px 2px 5px var(--neu-dark), -2px -2px 5px var(--neu-light);
+  border: 1px solid rgba(200,210,230,0.4);
+}
+.trust-badge svg {
+  width: 14px;
+  height: 14px;
+  color: var(--primary);
+}
+@media (max-width: 480px) {
+  .trust-badges {
+    gap: 8px;
+  }
+  .trust-badge {
+    padding: 5px 10px;
+    font-size: 10px;
   }
 }

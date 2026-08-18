@@ -6,6 +6,7 @@ import Link from 'next/link'
 import NavBar from '@/components/NavBar'
 import UploadZone from '@/components/UploadZone'
 import NeuButton from '@/components/ui/NeuButton'
+import TrustBadges from '@/components/TrustBadges'
 import { startReconciliation } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { fetchPlanStatus, FREE_RECON_LIMIT } from '@/lib/pricing'
@@ -300,6 +301,7 @@ export default function UploadPage() {
               <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 10 }}>
                 Your files are processed securely and never stored permanently
               </div>
+              <TrustBadges />
             </>
           )}
         </div>

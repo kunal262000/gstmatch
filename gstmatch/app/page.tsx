@@ -3,6 +3,7 @@ import NavBar from '@/components/NavBar'
 import HowItWorks from '@/components/HowItWorks'
 import Testimonials from '@/components/Testimonials'
 import FAQSection from '@/components/FAQSection'
+import TrustBadges from '@/components/TrustBadges'
 import { FAQS } from '@/lib/faqs'
 
 const FEATURES = [
@@ -171,6 +172,7 @@ export default function LandingPage() {
             style={{ padding: '13px 36px', fontSize: 15, fontWeight: 700 }}>
             Try it free →
           </Link>
+          <TrustBadges />
         </div>
 
         {/* ── FAQ Section ── */}
