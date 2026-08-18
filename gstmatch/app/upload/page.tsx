@@ -31,6 +31,7 @@ export default function UploadPage() {
   const [businessName, setBusinessName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [gstinError, setGstinError] = useState('')
   const [userId, setUserId] = useState<string | undefined>(undefined)
   const [reconCount, setReconCount] = useState(0)
   const [plan, setPlan] = useState('free')
@@ -239,8 +240,13 @@ export default function UploadPage() {
               className="neu-input"
               placeholder="Enter GSTIN"
               value={gstin}
-              onChange={e => setGstin(e.target.value)}
+              onChange={e => { setGstin(e.target.value); setGstinError('') }}
             />
+            {gstin && !isValidGSTIN(gstin) && (
+              <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 4, fontWeight: 500 }}>
+                ⚠ Invalid GSTIN format (must be 15 chars, e.g. 27AABCM1234F1Z5)
+              </div>
+            )}
           </div>
           <div>
             <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, marginBottom: 6 }}>Business name</div>
@@ -309,6 +315,11 @@ export default function UploadPage() {
                     ? '🔍 Run reconciliation →'
                     : 'Upload both files to continue'}
               </NeuButton>
+              {(gstin && !isValidGSTIN(gstin)) && (
+                <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 8, fontWeight: 500 }}>
+                  ⚠ Please enter a valid 15-character GSTIN
+                </div>
+              )}
               <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 10 }}>
                 Your files are processed securely and never stored permanently
               </div>
