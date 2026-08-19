@@ -1,25 +1,20 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import NavBar from '@/components/NavBar'
-import NeuCard from '@/components/ui/NeuCard'
-import NeuButton from '@/components/ui/NeuButton'
 import TrustBadges from '@/components/TrustBadges'
-import ViewTransitionLink from '@/components/ViewTransitionLink'
 import { supabase } from '@/lib/supabase'
-import {
-  TIERS,
-  fetchPlanStatus,
-  getPack,
-} from '@/lib/pricing'
+import { TIERS, fetchPlanStatus, getPack } from '@/lib/pricing'
+import { RECONCILIATION_TYPES } from '@/lib/reconciliation-registry'
 
 export default function PricingPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [currentPlan, setCurrentPlan] = useState<string>('free')
-  const [loadingPlan, setLoadingPlan] = useState<any>(null)
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly')
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [message, setMessage] = useState<string>('')
   const [error, setError] = useState<string>('')
 
@@ -51,6 +46,10 @@ export default function PricingPage() {
       return
     }
 
+    if (tierId === 'free') {
+      router.push('/upload')
+      return
+    }
 
     const pack = getPack(tierId)
     if (!pack) {
@@ -61,215 +60,377 @@ export default function PricingPage() {
     setLoadingPlan(tierId)
 
     try {
-      const response = await fetch('/api/cashfree/session', {
+      const res = await fetch('/api/cashfree/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: user.email,
-          userId: user.id,
-          plan: tierId,
-        }),
+        body: JSON.stringify({ tier: tierId }),
       })
 
-      const data = await response.json()
-
-      if (data.error) {
-        throw new Error(data.error)
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to initiate checkout order.')
       }
 
-      if (data.mock) {
-        // Trigger mock payment confirmation call
-        const webhookResponse = await fetch('/api/cashfree/webhook', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mock: true,
-            userId: user.id,
-            email: user.email,
-            plan: tierId,
-          }),
-        })
-
-        const webhookData = await webhookResponse.json()
-        const tierName = TIERS.find((t) => t.id === tierId)?.name ?? tierId
-        if (webhookData.success) {
-          setMessage(`Payment successful! You have been upgraded to the ${tierName} plan.`)
-          fetchUserPlan(user.id)
-        } else {
-          throw new Error('Upgrade update failed.')
-        }
+      if (data.paymentSessionId) {
+        router.push(`/payment?sessionId=${data.paymentSessionId}&orderId=${data.orderId}`)
       } else {
-        // Live Cashfree integration
-        const { load } = await import('@cashfreepayments/cashfree-js')
-        const isSandbox = process.env.NEXT_PUBLIC_CASHFREE_MODE === 'sandbox' || process.env.NEXT_PUBLIC_CASHFREE_APP_ID?.startsWith('TEST')
-        const cashfree = await load({
-          mode: isSandbox ? 'sandbox' : 'production',
-        })
-
-        const checkoutOptions = {
-          paymentSessionId: data.payment_session_id,
-          redirectTarget: '_self',
-        }
-
-        cashfree.checkout(checkoutOptions).then((result: any) => {
-          if (result.error) {
-            setError(result.error.message || 'Unable to open the Cashfree payment window.')
-          }
-        }).catch((coErr: any) => {
-          console.error('Cashfree checkout failed:', coErr)
-          setError(coErr?.message || 'Unable to open the Cashfree payment window. Please try again.')
-        })
+        throw new Error('Payment session missing. Please try again.')
       }
     } catch (err: any) {
-      setError(err.message || 'Payment initiation failed. Please try again.')
-    } finally {
+      setError(err.message || 'Payment initiation error.')
       setLoadingPlan(null)
     }
   }
 
+  const allRecons = Object.values(RECONCILIATION_TYPES)
+
   return (
-    <>
+    <div style={{ minHeight: '100vh', background: 'var(--neu-bg)' }}>
       <NavBar />
 
-      <main className="page-container">
-        {/* Header */}
-        <section style={{ textAlign: 'center', padding: '30px 0 20px' }}>
-          <h1 style={{ fontSize: 'var(--fs-h1)', fontWeight: 800, color: 'var(--text-1)', marginBottom: 12 }}>
-            Simple, transparent pricing
-          </h1>
-          <p style={{ fontSize: 15, color: 'var(--text-2)', maxWidth: 460, margin: '0 auto' }}>
-            Choose the plan that fits your business needs. Recover lost input tax credit immediately.
-          </p>
-        </section>
-
-        {error && (
-          <div style={{
-            background: 'var(--danger-bg)',
-            color: 'var(--danger)',
-            padding: '12px 16px',
-            borderRadius: 'var(--r-sm)',
-            fontSize: 13,
-            marginBottom: 20,
-            fontWeight: 500,
-            textAlign: 'center',
-            boxShadow: 'inset 2px 2px 5px rgba(239, 68, 68, 0.1)',
-          }}>
-            ⚠️ {error}
-          </div>
-        )}
-
-        {message && (
-          <div style={{
-            background: 'var(--primary-bg)',
-            color: 'var(--primary-dark)',
-            padding: '12px 16px',
-            borderRadius: 'var(--r-sm)',
-            fontSize: 13,
-            marginBottom: 20,
-            fontWeight: 500,
-            textAlign: 'center',
-            boxShadow: 'inset 2px 2px 5px rgba(16, 185, 129, 0.1)',
-          }}>
-            ✦ {message}
-          </div>
-        )}
-
-        {/* Current Plan Indicator */}
-        {user && (
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 24 }}>
-            <div style={{
+      <main style={{ maxWidth: '1240px', margin: '0 auto', padding: '40px 24px 80px' }}>
+        {/* Header Title Section */}
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div
+            style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 8,
-              padding: '6px 16px',
-              borderRadius: 'var(--r-pill)',
-              background: 'var(--neu-bg)',
-              boxShadow: 'inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light)',
-              fontSize: 13,
-              fontWeight: 600,
-              color: 'var(--text-2)'
-            }}>
-              Your current plan: <span style={{ color: 'var(--primary)', textTransform: 'capitalize' }}>{currentPlan}</span>
-            </div>
+              gap: '6px',
+              background: '#e0f2fe',
+              color: '#0284c7',
+              fontSize: '12px',
+              fontWeight: 800,
+              padding: '4px 12px',
+              borderRadius: '20px',
+              marginBottom: '12px',
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Simple, Transparent Pricing
+          </div>
+          <h1
+            style={{
+              fontSize: '36px',
+              fontWeight: 900,
+              color: '#1e293b',
+              marginBottom: '10px',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Powerful GST Reconciliation for <span style={{ color: '#10b981' }}>Every Business</span>
+          </h1>
+          <p
+            style={{
+              fontSize: '16px',
+              color: '#64748b',
+              maxWidth: '680px',
+              margin: '0 auto',
+              lineHeight: 1.5,
+            }}
+          >
+            Choose the plan that fits your needs. Recover lost input tax credit and save hours every month.
+          </p>
+        </div>
+
+        {/* Monthly / Annual Billing Toggle */}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              padding: '4px',
+              borderRadius: '24px',
+              background: '#ffffff',
+              border: '1px solid rgba(200,208,231,0.8)',
+              boxShadow: 'inset 2px 2px 4px rgba(0,0,0,0.05)',
+            }}
+          >
+            <button
+              onClick={() => setBillingCycle('monthly')}
+              style={{
+                padding: '8px 20px',
+                borderRadius: '20px',
+                border: 'none',
+                background: billingCycle === 'monthly' ? '#10b981' : 'transparent',
+                color: billingCycle === 'monthly' ? '#ffffff' : '#64748b',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingCycle('annual')}
+              style={{
+                padding: '8px 20px',
+                borderRadius: '20px',
+                border: 'none',
+                background: billingCycle === 'annual' ? '#10b981' : 'transparent',
+                color: billingCycle === 'annual' ? '#ffffff' : '#64748b',
+                fontWeight: 700,
+                fontSize: '13px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <span>Annual</span>
+              <span
+                style={{
+                  background: billingCycle === 'annual' ? '#ffffff' : '#dcfce7',
+                  color: billingCycle === 'annual' ? '#10b981' : '#15803d',
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  padding: '2px 6px',
+                  borderRadius: '10px',
+                }}
+              >
+                Save 17%
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div style={{ textAlign: 'center', fontSize: '12px', color: '#64748b', marginBottom: '36px' }}>
+          🛡️ Cancel or upgrade anytime. No long-term lock-in.
+        </div>
+
+        {error && (
+          <div style={{ maxWidth: '600px', margin: '0 auto 24px', padding: '12px 18px', borderRadius: '10px', background: '#fee2e2', color: '#991b1b', fontSize: '13px', fontWeight: 600, textAlign: 'center' }}>
+            {error}
           </div>
         )}
 
-        <p style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', marginTop: 4 }}>
-          💡 You can add or confirm your mobile number on the Cashfree payment page.
-        </p>
-
-        {/* Pricing Cards Grid */}
-        <div className="pricing-grid">
+        {/* 5 Pricing Tier Cards */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '16px',
+            marginBottom: '48px',
+          }}
+        >
           {TIERS.map((tier) => {
-            const isCurrent = currentPlan === tier.id
-            const isPopular = tier.id === 'deluxe'
+            const isPopular = tier.popular
+            const price = billingCycle === 'annual' && tier.annualAmount
+              ? Math.round(tier.annualAmount / 12)
+              : tier.amount
 
             return (
-              <NeuCard key={tier.id} padding="36px" style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative' }}>
+              <div
+                key={tier.id}
+                style={{
+                  borderRadius: '18px',
+                  background: 'var(--neu-bg)',
+                  boxShadow: isPopular
+                    ? '8px 8px 18px var(--neu-dark), -8px -8px 18px var(--neu-light)'
+                    : '5px 5px 12px var(--neu-dark), -5px -5px 12px var(--neu-light)',
+                  padding: '24px 20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  border: isPopular ? '2px solid #10b981' : '1px solid rgba(255,255,255,0.7)',
+                  position: 'relative',
+                }}
+              >
                 {isPopular && (
-                  <div style={{
-                    position: 'absolute',
-                    top: -12,
-                    right: 28,
-                    background: 'var(--primary-bg)',
-                    color: 'var(--primary-dark)',
-                    fontSize: 11,
-                    fontWeight: 700,
-                    padding: '4px 12px',
-                    borderRadius: 'var(--r-pill)',
-                    boxShadow: '2px 2px 6px var(--neu-dark), -2px -2px 6px var(--neu-light)',
-                  }}>
-                    Popular Choice
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '-12px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      background: '#10b981',
+                      color: '#ffffff',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      padding: '3px 12px',
+                      borderRadius: '12px',
+                      letterSpacing: '0.04em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Most Popular
                   </div>
                 )}
 
-                <h3 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text-1)', marginBottom: 8 }}>{tier.name}</h3>
-                <p style={{ fontSize: 13, color: 'var(--text-3)', marginBottom: 20, minHeight: 40 }}>{tier.desc}</p>
-
-                <div style={{ display: 'flex', alignItems: 'baseline', marginBottom: 8 }}>
-                  <span style={{ fontSize: 36, fontWeight: 800, color: 'var(--text-1)' }}>₹{tier.amount.toLocaleString('en-IN')}</span>
-                  <span style={{ fontSize: 14, color: 'var(--text-3)', marginLeft: 4 }}>/{tier.periodLabel}</span>
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 24 }}>One-time payment</div>
-
-                <div style={{ flexGrow: 1, marginBottom: 28 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    What&apos;s Included
+                <div>
+                  <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                    <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#1e293b', margin: '0 0 6px' }}>
+                      {tier.name}
+                    </h3>
+                    <div style={{ fontSize: '32px', fontWeight: 900, color: '#0f172a', margin: '8px 0 4px' }}>
+                      ₹{price}
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
+                        /{tier.periodLabel}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '12px', color: '#64748b', margin: 0, minHeight: '32px', lineHeight: 1.4 }}>
+                      {tier.desc}
+                    </p>
                   </div>
-                  <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {tier.features.map((feat) => (
-                      <li key={feat} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-2)' }}>
-                        <span style={{ color: 'var(--primary)', fontSize: 14, fontWeight: 'bold' }}>✓</span>
-                        {feat}
-                      </li>
+
+                  <button
+                    onClick={() => handleCheckout(tier.id)}
+                    disabled={loadingPlan === tier.id}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '10px',
+                      background: isPopular
+                        ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                        : 'var(--neu-bg)',
+                      color: isPopular ? '#ffffff' : '#1e293b',
+                      fontSize: '13px',
+                      fontWeight: 800,
+                      border: isPopular ? 'none' : '1px solid rgba(200,208,231,0.8)',
+                      boxShadow: isPopular
+                        ? '0 4px 12px rgba(16,185,129,0.35)'
+                        : '3px 3px 6px var(--neu-dark), -3px -3px 6px var(--neu-light)',
+                      cursor: 'pointer',
+                      marginBottom: '20px',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {loadingPlan === tier.id ? 'Processing...' : tier.id === 'free' ? 'Get Started' : `Choose ${tier.name}`}
+                  </button>
+
+                  {/* Feature list */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12px', color: '#334155' }}>
+                    {tier.features.map((feat, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                        <span style={{ color: '#10b981', fontWeight: 800 }}>✓</span>
+                        <span style={{ lineHeight: 1.4 }}>{feat}</span>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
 
-                <NeuButton
-                  variant={isCurrent ? 'ghost' : 'primary'}
-                  size="lg"
-                  fullWidth
-                  disabled={loadingPlan !== null}
-                  onClick={() => handleCheckout(tier.id)}
-                >
-                  {loadingPlan === tier.id ? 'Processing...' : isCurrent ? 'Renew / Extend' : `Get ${tier.name}`}
-                </NeuButton>
-              </NeuCard>
+                <div style={{ marginTop: '24px', paddingTop: '12px', borderTop: '1px solid rgba(200,208,231,0.4)', textAlign: 'center', fontSize: '11px', color: '#94a3b8' }}>
+                  {tier.id === 'free' ? 'Perfect to explore GSTMatch features' : tier.id === 'growth' ? 'Everything you need to stay GST compliant' : 'Scale your practice. Manage more clients.'}
+                </div>
+              </div>
             )
           })}
         </div>
 
-        {/* Trust Signals */}
-        <TrustBadges />
+        {/* All GST Reconciliations Included Matrix */}
+        <div
+          style={{
+            borderRadius: '20px',
+            background: 'var(--neu-bg)',
+            boxShadow: '6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light)',
+            padding: '32px 28px',
+            marginBottom: '40px',
+          }}
+        >
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: 800, color: '#1e293b', margin: '0 0 6px' }}>
+              All GST Reconciliations Included
+            </h2>
+            <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+              Every paid plan includes full access to our entire reconciliation engine suite
+            </p>
+          </div>
 
-        {/* Back Link */}
-        <div style={{ textAlign: 'center', marginTop: 32 }}>
-          <ViewTransitionLink href="/upload" style={{ fontSize: 13, color: 'var(--text-2)', textDecoration: 'none', fontWeight: 600 }}>
-            ← Back to Upload
-          </ViewTransitionLink>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+              gap: '14px',
+            }}
+          >
+            {allRecons.map((recon) => (
+              <div
+                key={recon.id}
+                style={{
+                  borderRadius: '12px',
+                  background: 'rgba(255,255,255,0.7)',
+                  border: '1px solid rgba(200,208,231,0.6)',
+                  padding: '12px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                }}
+              >
+                <span style={{ fontSize: '20px' }}>
+                  {recon.category === 'itc' ? '📄' : recon.category === 'sales' ? '📊' : recon.category === 'returns' ? '📑' : '🏛️'}
+                </span>
+                <div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
+                    {recon.name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>
+                    {recon.categoryLabel}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+
+        {/* Best Value Annual Plan Banner */}
+        <div
+          style={{
+            borderRadius: '20px',
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+            border: '2px solid #86efac',
+            padding: '32px 36px',
+            marginBottom: '48px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '24px',
+          }}
+        >
+          <div>
+            <div style={{ display: 'inline-block', background: '#10b981', color: '#ffffff', fontSize: '11px', fontWeight: 800, padding: '3px 10px', borderRadius: '10px', marginBottom: '8px', textTransform: 'uppercase' }}>
+              Best Value
+            </div>
+            <h3 style={{ fontSize: '26px', fontWeight: 900, color: '#064e3b', margin: '0 0 6px' }}>
+              Annual Plan (All Features Included)
+            </h3>
+            <div style={{ fontSize: '32px', fontWeight: 900, color: '#166534', marginBottom: '6px' }}>
+              ₹4,999<span style={{ fontSize: '15px', fontWeight: 600 }}>/year</span>
+            </div>
+            <p style={{ fontSize: '13px', color: '#15803d', margin: 0 }}>
+              Everything in Growth Plan and more — billed annually (That's only ₹417/month).
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px', color: '#064e3b' }}>
+            <div>✓ Unlimited reconciliations*</div>
+            <div>✓ Up to 10 GSTIN profiles</div>
+            <div>✓ Advanced reports & export</div>
+            <div>✓ Priority WhatsApp support</div>
+            <div>✓ Compliance score history</div>
+          </div>
+
+          <button
+            onClick={() => handleCheckout('deluxe')}
+            style={{
+              padding: '14px 28px',
+              borderRadius: '12px',
+              background: '#10b981',
+              color: '#ffffff',
+              fontSize: '15px',
+              fontWeight: 800,
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 4px 14px rgba(16,185,129,0.4)',
+            }}
+          >
+            Get Annual Plan →
+          </button>
+        </div>
+
+        <TrustBadges />
       </main>
-    </>
+    </div>
   )
 }

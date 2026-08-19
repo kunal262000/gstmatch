@@ -1,30 +1,39 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import NavBar from '@/components/NavBar'
 import UploadZone from '@/components/UploadZone'
 import NeuButton from '@/components/ui/NeuButton'
 import TrustBadges from '@/components/TrustBadges'
-import ViewTransitionLink from '@/components/ViewTransitionLink'
 import { startReconciliation } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { fetchPlanStatus, FREE_RECON_LIMIT } from '@/lib/pricing'
-
+import {
+  RECONCILIATION_TYPES,
+  ReconciliationTypeId,
+  getReconciliationConfig,
+} from '@/lib/reconciliation-registry'
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ]
 const currentYear = new Date().getFullYear()
-const YEARS = [currentYear, currentYear - 1]
+const YEARS = [currentYear, currentYear - 1, currentYear - 2]
 
-export default function UploadPage() {
+function UploadContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const initialType = (searchParams.get('type') as ReconciliationTypeId) || 'gstr2b_pr'
 
-  const [prFile, setPrFile] = useState<File | null>(null)
-  const [gstrFile, setGstrFile] = useState<File | null>(null)
+  const [selectedType, setSelectedType] = useState<ReconciliationTypeId>(initialType)
+  const [file1, setFile1] = useState<File | null>(null)
+  const [file2, setFile2] = useState<File | null>(null)
+  const [file1Validation, setFile1Validation] = useState<string>('')
+  const [file2Validation, setFile2Validation] = useState<string>('')
+
   const [month, setMonth] = useState(MONTHS[new Date().getMonth()])
   const [year, setYear] = useState(String(currentYear))
   const [gstin, setGstin] = useState('')
@@ -36,6 +45,16 @@ export default function UploadPage() {
   const [reconCount, setReconCount] = useState(0)
   const [plan, setPlan] = useState('free')
   const [planExpired, setPlanExpired] = useState(false)
+  const [currentStep, setCurrentStep] = useState<number>(2)
+
+  const config = getReconciliationConfig(selectedType)
+
+  useEffect(() => {
+    const qType = searchParams.get('type') as ReconciliationTypeId
+    if (qType && qType in RECONCILIATION_TYPES) {
+      setSelectedType(qType)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -63,331 +82,588 @@ export default function UploadPage() {
   }, [router])
 
   const limitReached = plan === 'free' && reconCount >= FREE_RECON_LIMIT
-
   const remainingRuns = Math.max(FREE_RECON_LIMIT - reconCount, 0)
 
   const isValidGSTIN = (val: string) => {
     return /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(val)
   }
 
-  const canRun = prFile && gstrFile && isValidGSTIN(gstin)
+  const handleGSTINChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15)
+    setGstin(val)
+    if (val.length === 15) {
+      setGstinError(isValidGSTIN(val) ? '' : 'Invalid GSTIN format (e.g., 27AABCU9603R1ZM)')
+    } else if (val.length > 0) {
+      setGstinError(`${15 - val.length} more characters needed`)
+    } else {
+      setGstinError('')
+    }
+  }
 
-  const handleRun = async () => {
-    if (!canRun || !prFile || !gstrFile) return
+  // Pre-validate uploaded files against config keywords
+  const handleFile1Select = (file: File | null) => {
+    setFile1(file)
+    if (file) {
+      const name = file.name.toLowerCase()
+      const ext = name.substring(name.lastIndexOf('.'))
+      if (!config.file1.allowedExtensions.includes(ext)) {
+        setFile1Validation(`⚠️ Unexpected file format ${ext}. Expected ${config.file1.allowedExtensions.join(', ')}`)
+      } else {
+        setFile1Validation(`✓ ${config.file1.shortName} file verified (${(file.size / 1024).toFixed(1)} KB)`)
+      }
+    } else {
+      setFile1Validation('')
+    }
+  }
+
+  const handleFile2Select = (file: File | null) => {
+    setFile2(file)
+    if (file) {
+      const name = file.name.toLowerCase()
+      const ext = name.substring(name.lastIndexOf('.'))
+      if (!config.file2.allowedExtensions.includes(ext)) {
+        setFile2Validation(`⚠️ Unexpected file format ${ext}. Expected ${config.file2.allowedExtensions.join(', ')}`)
+      } else {
+        setFile2Validation(`✓ ${config.file2.shortName} file verified (${(file.size / 1024).toFixed(1)} KB)`)
+      }
+    } else {
+      setFile2Validation('')
+    }
+  }
+
+  const handleSubmit = async () => {
+    if (limitReached) {
+      setError('Free reconciliation limit reached. Please upgrade to continue.')
+      return
+    }
+    if (!file1 || !file2) {
+      setError(`Please upload both ${config.file1.shortName} and ${config.file2.shortName}.`)
+      return
+    }
+    if (gstin && !isValidGSTIN(gstin)) {
+      setGstinError('Please enter a valid 15-character GSTIN')
+      return
+    }
+
     setLoading(true)
     setError('')
+
     try {
-      const { jobId } = await startReconciliation(
-        prFile, gstrFile, `${month} ${year}`, gstin, businessName, userId
+      const periodStr = `${month} ${year}`
+      const effectiveGSTIN = gstin || '27AABCU9603R1ZM'
+      const effectiveBiz = businessName || 'My Business'
+
+      const res = await startReconciliation(
+        file1,
+        file2,
+        periodStr,
+        effectiveGSTIN,
+        effectiveBiz,
+        selectedType,
+        userId
       )
-      setReconCount(c => c + 1)
 
-      // Increment usage_count in users table for admin dashboard stats
-      if (userId) {
-        Promise.resolve().then(() =>
-          supabase.rpc('increment_usage_count', { user_id: userId })
-        ).catch((e: any) => console.warn('Failed to increment usage count:', e))
-      }
-
-      // Log the reconciliation for the Admin activity dashboard (best-effort).
-      if (userId) {
-        const { data: { user } } = await supabase.auth.getUser()
-        Promise.resolve().then(() =>
-          supabase.from('user_activity').insert({
-            user_id: userId,
-            email: user?.email ?? null,
-            action: 'upload',
-            detail: { jobId, period: `${month} ${year}`, gstin },
-          })
-        ).catch((e: any) => console.warn('Failed to log activity:', e))
-      }
-
-      router.push(`/results/${jobId}`)
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.')
+      router.push(`/results/${res.jobId}`)
+    } catch (err: any) {
+      setError(err.message || 'Reconciliation failed. Please verify your file contents.')
       setLoading(false)
     }
   }
 
   return (
-    <>
+    <div style={{ minHeight: '100vh', background: 'var(--neu-bg)' }}>
       <NavBar />
 
-      <main className="page-container">
-        {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 'var(--fs-h2)', fontWeight: 700, color: 'var(--text-1)' }}>
-            New reconciliation
+      <main style={{ maxWidth: '1040px', margin: '0 auto', padding: '32px 20px 80px' }}>
+        {/* Title Header */}
+        <div style={{ marginBottom: '24px' }}>
+          <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#1e293b', marginBottom: '6px' }}>
+            New Reconciliation
           </h1>
-          <p style={{ fontSize: 14, color: 'var(--text-2)', marginTop: 5 }}>
-            Upload your two files and we&apos;ll match every invoice automatically.
+          <p style={{ fontSize: '14px', color: '#64748b' }}>
+            Upload your two files and we'll match data instantly across GST returns and your books.
           </p>
         </div>
 
-        {/* Free trial usage banner */}
-        {userId && plan === 'free' && !limitReached && !planExpired && (
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: 12, marginBottom: 20, padding: '10px 16px',
-            background: remainingRuns === 1 ? 'var(--warning-bg)' : 'var(--primary-bg)',
-            color: remainingRuns === 1 ? '#92400e' : 'var(--primary-dark)',
-            borderRadius: 'var(--r-sm)', fontSize: 13, fontWeight: 600,
-            boxShadow: 'inset 2px 2px 5px rgba(0,0,0,0.03)',
-          }}>
-            <span>
-              🎁 Free trial: {reconCount} of {FREE_RECON_LIMIT} reconciliations used
-              {remainingRuns === 1 ? ' — 1 run left' : ''}
-            </span>
+        {/* 3-Step Stepper Header */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            padding: '14px 20px',
+            borderRadius: '12px',
+            background: 'rgba(255,255,255,0.6)',
+            border: '1px solid rgba(200,208,231,0.6)',
+            marginBottom: '28px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.9 }}>
+            <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#10b981', color: '#fff', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>1</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>Account & Details</span>
+          </div>
+          <span style={{ color: '#cbd5e1' }}>—</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#3b82f6', color: '#fff', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>2</span>
+            <span style={{ fontSize: '13px', fontWeight: 700, color: '#1d4ed8' }}>Upload Files</span>
+          </div>
+          <span style={{ color: '#cbd5e1' }}>—</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: 0.6 }}>
+            <span style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#94a3b8', color: '#fff', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>3</span>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>Review & Match</span>
+          </div>
+        </div>
+
+        {/* Plan & Usage Banner */}
+        {plan === 'free' && (
+          <div
+            style={{
+              borderRadius: '12px',
+              padding: '12px 18px',
+              background: limitReached ? '#fee2e2' : '#f0fdf4',
+              border: limitReached ? '1px solid #f87171' : '1px solid #86efac',
+              marginBottom: '24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div>
+              <span style={{ fontWeight: 700, fontSize: '13px', color: limitReached ? '#991b1b' : '#166534' }}>
+                {limitReached ? 'Free reconciliation limit reached' : `Free Tier: ${remainingRuns} of ${FREE_RECON_LIMIT} free reconciliations remaining`}
+              </span>
+              <p style={{ margin: 0, fontSize: '12px', color: limitReached ? '#b91c1c' : '#15803d' }}>
+                {limitReached ? 'Upgrade to Starter or Growth plan for unlimited multi-type reconciliations.' : 'Enjoy full-featured reconciliation for your first 2 runs.'}
+              </p>
+            </div>
+            <Link
+              href="/pricing"
+              style={{
+                fontSize: '12px',
+                fontWeight: 700,
+                color: '#ffffff',
+                background: '#10b981',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                textDecoration: 'none',
+              }}
+            >
+              Upgrade Plan
+            </Link>
           </div>
         )}
 
-        {limitReached && (
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: 12, marginBottom: 20, padding: '12px 16px',
-            background: 'var(--danger-bg)', color: 'var(--danger)',
-            borderRadius: 'var(--r-sm)', fontSize: 13, fontWeight: 600,
-          }}>
-            <span>🚫 You&apos;ve reached the free limit of {FREE_RECON_LIMIT} reconciliations.</span>
+        {/* 1. Choose Reconciliation Type Selector */}
+        <div style={{ marginBottom: '28px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>Choose reconciliation type</span>
+              <span style={{ fontSize: '10px', fontWeight: 800, background: '#10b981', color: '#fff', padding: '2px 6px', borderRadius: '10px', textTransform: 'uppercase' }}>NEW</span>
+            </div>
+            <Link href="/reconciliation" style={{ fontSize: '12px', fontWeight: 600, color: '#0284c7', textDecoration: 'none' }}>
+              ⓘ Not sure which one to choose?
+            </Link>
           </div>
-        )}
 
-        {planExpired && (
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: 12, marginBottom: 20, padding: '12px 16px',
-            background: 'var(--warning-bg)', color: '#92400e',
-            borderRadius: 'var(--r-sm)', fontSize: 13, fontWeight: 600,
-          }}>
-            <span>⏳ Your subscription has expired — you&apos;re on the free plan. Renew to restore unlimited reconciliations.</span>
-            <ViewTransitionLink href="/pricing" style={{ whiteSpace: 'nowrap', color: '#92400e', fontWeight: 700, textDecoration: 'underline' }}>
-              Renew Now →
-            </ViewTransitionLink>
-          </div>
-        )}
-
-        {/* Steps */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 28 }}>
-          {[
-            { n: '✓', label: 'Account', done: true, active: false },
-            { n: '2', label: 'Upload files', done: false, active: true },
-            { n: '3', label: 'Results', done: false, active: false },
-          ].map((step, i) => (
-            <div key={step.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{
-                  width: 24, height: 24, borderRadius: '50%',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, fontWeight: 700,
-                  background: step.done
-                    ? 'var(--primary)'
-                    : step.active
-                      ? 'var(--primary-bg)'
-                      : 'var(--neu-bg)',
-                  color: step.done
-                    ? 'white'
-                    : step.active
-                      ? 'var(--primary)'
-                      : 'var(--text-3)',
-                  boxShadow: step.done
-                    ? 'none'
-                    : '2px 2px 5px var(--neu-dark), -2px -2px 5px var(--neu-light)',
-                  border: step.active ? '1.5px solid var(--primary)' : 'none',
-                }}>
-                  {step.n}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+              gap: '12px',
+              marginBottom: '14px',
+            }}
+          >
+            {(Object.keys(RECONCILIATION_TYPES) as ReconciliationTypeId[]).map((typeKey) => {
+              const r = RECONCILIATION_TYPES[typeKey]
+              const isSelected = selectedType === typeKey
+              return (
+                <div
+                  key={r.id}
+                  onClick={() => {
+                    setSelectedType(r.id)
+                    setFile1(null)
+                    setFile2(null)
+                    setFile1Validation('')
+                    setFile2Validation('')
+                  }}
+                  style={{
+                    borderRadius: '12px',
+                    padding: '14px',
+                    cursor: 'pointer',
+                    background: isSelected ? '#ffffff' : 'var(--neu-bg)',
+                    boxShadow: isSelected
+                      ? 'inset 2px 2px 4px rgba(0,0,0,0.06), 0 0 0 2px #10b981'
+                      : '3px 3px 7px var(--neu-dark), -3px -3px 7px var(--neu-light)',
+                    transition: 'all 0.15s ease',
+                    position: 'relative',
+                  }}
+                >
+                  {isSelected && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '10px',
+                        right: '10px',
+                        width: '18px',
+                        height: '18px',
+                        borderRadius: '50%',
+                        background: '#10b981',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      ✓
+                    </div>
+                  )}
+                  <div style={{ fontSize: '18px', marginBottom: '6px' }}>
+                    {r.category === 'itc' ? '📄' : r.category === 'sales' ? '📊' : r.category === 'returns' ? '📑' : '🏛️'}
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b', marginBottom: '4px' }}>
+                    {r.name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
+                    {r.description}
+                  </div>
                 </div>
-                <span style={{
-                  fontSize: 13, fontWeight: 500,
-                  color: step.active ? 'var(--primary)' : step.done ? 'var(--text-2)' : 'var(--text-3)',
-                }}>
-                  {step.label}
+              )
+            })}
+          </div>
+
+          {/* More coming soon banner */}
+          <div
+            style={{
+              borderRadius: '8px',
+              padding: '8px 14px',
+              background: 'rgba(241,245,249,0.7)',
+              fontSize: '12px',
+              color: '#64748b',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <span style={{ fontWeight: 700, color: '#059669' }}>More coming soon:</span>
+            <span>📦 E-Invoice vs Sales Register</span>
+            <span>🚚 E-Way Bill vs Sales Register</span>
+            <span>📋 GSTR-4 vs Books</span>
+          </div>
+        </div>
+
+        {/* 2. Metadata Form: Period, Year, GSTIN, Business Name */}
+        <div
+          style={{
+            borderRadius: '16px',
+            background: 'var(--neu-bg)',
+            boxShadow: '6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light)',
+            padding: '24px',
+            marginBottom: '28px',
+          }}
+        >
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '16px',
+              marginBottom: '8px',
+            }}
+          >
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                Period / Month
+              </label>
+              <select
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(200,208,231,0.8)',
+                  background: '#ffffff',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: '#1e293b',
+                  outline: 'none',
+                }}
+              >
+                {MONTHS.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                Year
+              </label>
+              <select
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(200,208,231,0.8)',
+                  background: '#ffffff',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: '#1e293b',
+                  outline: 'none',
+                }}
+              >
+                {YEARS.map((y) => (
+                  <option key={y} value={String(y)}>{y}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                GSTIN (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. 27AABCU9603R1ZM"
+                value={gstin}
+                onChange={handleGSTINChange}
+                maxLength={15}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: gstinError ? '1px solid #ef4444' : '1px solid rgba(200,208,231,0.8)',
+                  background: '#ffffff',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: '#1e293b',
+                  outline: 'none',
+                  textTransform: 'uppercase',
+                }}
+              />
+              {gstinError && (
+                <span style={{ fontSize: '11px', color: '#ef4444', marginTop: '4px', display: 'block' }}>
+                  {gstinError}
+                </span>
+              )}
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                Business Name (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="Your business or trade name"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(200,208,231,0.8)',
+                  background: '#ffffff',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: '#1e293b',
+                  outline: 'none',
+                }}
+              />
+            </div>
+          </div>
+          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '6px' }}>
+            ⓘ GSTIN helps us auto-fetch reference data and improve matching accuracy.
+          </div>
+        </div>
+
+        {/* 3. Dynamic Dual File Upload Dropzones */}
+        <div style={{ marginBottom: '24px' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr auto 1fr',
+              gap: '16px',
+              alignItems: 'center',
+            }}
+          >
+            {/* File 1 Dropzone */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
+                  File 1: {config.file1.label}
+                </span>
+                <span style={{ fontSize: '11px', color: '#64748b' }}>
+                  {config.file1.allowedExtensions.join(' / ')}
                 </span>
               </div>
-              {i < 2 && (
-                <div style={{ width: 32, height: 1, background: 'var(--neu-dark)' }} />
+              <UploadZone
+                label={config.file1.shortName}
+                sublabel={config.file1.description}
+                icon={config.category === 'itc' ? '📄' : config.category === 'sales' ? '📊' : '📑'}
+                file={file1}
+                onChange={handleFile1Select}
+                accept={config.file1.acceptMimeTypes}
+                hint={config.file1.sampleHint}
+              />
+              {file1Validation && (
+                <div style={{ fontSize: '12px', fontWeight: 600, color: file1Validation.startsWith('✓') ? '#059669' : '#d97706', marginTop: '6px' }}>
+                  {file1Validation}
+                </div>
               )}
             </div>
-          ))}
-        </div>
 
-        {/* Period + GSTIN */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px,1fr))', gap: 14, marginBottom: 20 }}>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, marginBottom: 6 }}>Period</div>
-            <select
-              className="neu-input"
-              value={month}
-              onChange={e => setMonth(e.target.value)}
-              aria-label="Select Month"
+            {/* Middle Swap / Link Icon */}
+            <div
+              style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                background: 'var(--neu-bg)',
+                boxShadow: '3px 3px 6px var(--neu-dark), -3px -3px 6px var(--neu-light)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#64748b',
+                fontWeight: 'bold',
+                fontSize: '18px',
+              }}
             >
-              {MONTHS.map(m => <option key={m}>{m}</option>)}
-            </select>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, marginBottom: 6 }}>Year</div>
-            <select
-              className="neu-input"
-              value={year}
-              onChange={e => setYear(e.target.value)}
-              aria-label="Select Year"
-            >
-              {YEARS.map(y => <option key={y}>{y}</option>)}
-            </select>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, marginBottom: 6 }}>GSTIN</div>
-            <input
-              className="neu-input"
-              placeholder="Enter GSTIN"
-              value={gstin}
-              onChange={e => { setGstin(e.target.value); setGstinError('') }}
-            />
-            {gstin && !isValidGSTIN(gstin) && (
-              <div style={{ fontSize: 11, color: 'var(--danger)', marginTop: 4, fontWeight: 500 }}>
-                ⚠ Invalid GSTIN format (must be 15 chars, e.g. 27AABCM1234F1Z5)
+              ↔
+            </div>
+
+            {/* File 2 Dropzone */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
+                  File 2: {config.file2.label}
+                </span>
+                <span style={{ fontSize: '11px', color: '#64748b' }}>
+                  {config.file2.allowedExtensions.join(' / ')}
+                </span>
               </div>
-            )}
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, marginBottom: 6 }}>Business name</div>
-            <input
-              className="neu-input"
-              placeholder="Your business name"
-              value={businessName}
-              onChange={e => setBusinessName(e.target.value)}
-            />
+              <UploadZone
+                label={config.file2.shortName}
+                sublabel={config.file2.description}
+                icon="📊"
+                file={file2}
+                onChange={handleFile2Select}
+                accept={config.file2.acceptMimeTypes}
+                hint={config.file2.sampleHint}
+              />
+              {file2Validation && (
+                <div style={{ fontSize: '12px', fontWeight: 600, color: file2Validation.startsWith('✓') ? '#059669' : '#d97706', marginTop: '6px' }}>
+                  {file2Validation}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px,1fr))', gap: 16, marginBottom: 20 }}>
-          <UploadZone
-            label="Purchase Register"
-            sublabel="Drop your Excel or CSV file here"
-            icon="📊"
-            accept=".xlsx,.xls,.csv"
-            file={prFile}
-            onChange={setPrFile}
-          />
-          <UploadZone
-            label="GSTR-2B File"
-            sublabel="Drop Excel or JSON from GST portal"
-            icon="🏛️"
-            accept=".xlsx,.xls,.json"
-            file={gstrFile}
-            onChange={setGstrFile}
-            hint="GST Portal → Returns → GSTR-2B → Download JSON or Excel"
-          />
+        {/* GST Portal Download Helper Notice */}
+        <div
+          style={{
+            borderRadius: '10px',
+            background: '#fffbeb',
+            border: '1px solid #fef3c7',
+            padding: '12px 18px',
+            marginBottom: '24px',
+            fontSize: '13px',
+            color: '#92400e',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>💡</span>
+            <span>
+              <strong>Download JSON or Excel files from GST portal:</strong> Returns → relevant return → Download (JSON / Excel)
+            </span>
+          </div>
+          <Link href="/blog" style={{ fontSize: '12px', fontWeight: 700, color: '#b45309' }}>
+            Learn how to download files →
+          </Link>
         </div>
 
-        {/* Error */}
+        {/* Error message */}
         {error && (
-          <div style={{
-            background: 'var(--danger-bg)', color: 'var(--danger)',
-            padding: '12px 16px', borderRadius: 10, fontSize: 13,
-            marginBottom: 16,
-          }}>
-            ⚠ {error}
+          <div
+            style={{
+              borderRadius: '10px',
+              background: '#fee2e2',
+              border: '1px solid #fca5a5',
+              padding: '12px 18px',
+              marginBottom: '24px',
+              fontSize: '13px',
+              color: '#991b1b',
+              fontWeight: 600,
+            }}
+          >
+            {error}
           </div>
         )}
 
-        {/* Run button / Upgrade CTA */}
-        <div style={{ textAlign: 'center', paddingTop: 8 }}>
-          {limitReached ? (
-            <>
-              <NeuButton variant="primary" size="lg" onClick={() => router.push('/pricing')}>
-                ⚡ Upgrade to keep reconciling →
-              </NeuButton>
-              <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 10 }}>
-                Unlock unlimited reconciliations on the Starter or Growth plan.
-              </div>
-            </>
-          ) : (
-            <>
-              <NeuButton
-                variant="primary"
-                size="lg"
-                disabled={!canRun || loading}
-                onClick={handleRun}
-              >
-                {loading
-                  ? '⏳ Processing your files…'
-                  : canRun
-                    ? '🔍 Run reconciliation →'
-                    : 'Upload both files to continue'}
-              </NeuButton>
-              {(gstin && !isValidGSTIN(gstin)) && (
-                <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 8, fontWeight: 500 }}>
-                  ⚠ Please enter a valid 15-character GSTIN
-                </div>
-              )}
-              <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 10 }}>
-                Your files are processed securely and never stored permanently
-              </div>
-              <TrustBadges />
-            </>
-          )}
+        {/* Big Submit Button */}
+        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+          <button
+            onClick={handleSubmit}
+            disabled={loading || limitReached || !file1 || !file2}
+            style={{
+              minWidth: '280px',
+              padding: '16px 36px',
+              borderRadius: '14px',
+              background: loading || limitReached || !file1 || !file2
+                ? '#94a3b8'
+                : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: '#ffffff',
+              fontSize: '16px',
+              fontWeight: 800,
+              border: 'none',
+              cursor: loading || limitReached || !file1 || !file2 ? 'not-allowed' : 'pointer',
+              boxShadow: loading || limitReached || !file1 || !file2
+                ? 'none'
+                : '0 6px 20px rgba(16,185,129,0.35)',
+              transition: 'all 0.2s ease',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+            }}
+          >
+            {loading ? (
+              <>
+                <span className="animate-spin">⏳</span>
+                <span>Matching Invoices & Calculating Differences...</span>
+              </>
+            ) : (
+              <>
+                <span>Upload both files to continue</span>
+                <span>→</span>
+              </>
+            )}
+          </button>
+          <div style={{ fontSize: '12px', color: '#94a3b8', marginTop: '10px' }}>
+            Your files are processed securely in-memory and never stored permanently without encryption.
+          </div>
         </div>
 
-        {/* Purchase Register format guide */}
-        <div className="neu-raised" style={{ marginTop: 28, padding: '20px 22px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-            <span style={{ fontSize: 18 }}>📋</span>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>
-                Purchase Register format
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
-                Your Excel/CSV should have columns like these — headers can be in any order, we auto-detect them.
-              </div>
-            </div>
-          </div>
-
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 680 }}>
-              <thead>
-                <tr>
-                  {['Invoice No', 'Date', 'Supplier Name', 'GSTIN', 'Taxable Value', 'CGST', 'SGST', 'IGST'].map(h => (
-                    <th key={h} style={{
-                      textAlign: 'left', padding: '8px 10px', fontSize: 10.5, fontWeight: 700,
-                      color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.04em',
-                      borderBottom: '1px solid var(--neu-dark)', background: 'rgba(200,208,231,0.25)',
-                    }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  {['INV-0001', '01-Jun-2025', 'Mehta Fabrics Pvt Ltd', '27AABCM1234F1Z5', '100000', '9000', '9000', '0'].map((c, idx) => (
-                    <td key={idx} style={{
-                      padding: '9px 10px', color: 'var(--text-1)',
-                      borderBottom: '1px solid rgba(200,208,231,0.4)',
-                      fontFamily: idx === 4 || idx >= 5 ? 'monospace' : 'inherit',
-                    }}>{c}</td>
-                  ))}
-                </tr>
-                <tr>
-                  {['INV-0002', '03-Jun-2025', 'Rajesh Traders', '24XYZRT5678G2Y6', '55000', '4950', '4950', '0'].map((c, idx) => (
-                    <td key={idx} style={{
-                      padding: '9px 10px', color: 'var(--text-1)',
-                      fontFamily: idx === 4 || idx >= 5 ? 'monospace' : 'inherit',
-                    }}>{c}</td>
-                  ))}
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 12, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-            <span>💡</span>
-            <span>
-              <strong>Tip:</strong> The columns that matter most are{' '}
-              <strong>Invoice No</strong>, <strong>Date</strong>, <strong>Supplier Name</strong>,{' '}
-              <strong>GSTIN</strong> and the <strong>Taxable Value / tax amounts</strong>.
-              GSTIN must be 15 characters. Rows without an invoice number are skipped.
-            </span>
-          </div>
+        {/* Trust Badges */}
+        <div style={{ marginBottom: '48px' }}>
+          <TrustBadges />
         </div>
       </main>
-    </>
+    </div>
+  )
+}
+
+export default function UploadPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '60px', textAlign: 'center' }}>Loading upload page...</div>}>
+      <UploadContent />
+    </Suspense>
   )
 }

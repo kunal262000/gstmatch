@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import Response
 
 from models.schemas import ReconciliationResult
-from reports.excel_report import generate_excel
+from reports.excel_report import generate_excel_report as generate_excel
 from reports.pdf_report import generate_pdf
 import storage.job_store as store
 from core.auth import current_user_or_401

@@ -1,52 +1,26 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import React, { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import NavBar from '@/components/NavBar'
 import MetricCard from '@/components/MetricCard'
-import ITCAlert from '@/components/ITCAlert'
 import SupplierTable from '@/components/SupplierTable'
-import NeuButton from '@/components/ui/NeuButton'
+import InvoiceTable from '@/components/InvoiceTable'
+import TrustBadges from '@/components/TrustBadges'
 import { getResult, downloadExcel, downloadPDF } from '@/lib/api'
 import { ReconciliationResult } from '@/lib/types'
-
-// ─── Demo data shown when jobId === 'demo' ────
-const DEMO_DATA: ReconciliationResult = {
-  id:           'demo',
-  period:       'June 2025',
-  gstin:        '27AAAAA0000A1Z5',
-  businessName: 'Kunal Enterprises',
-  processedAt:  new Date().toISOString(),
-  summary: {
-    matched:          305,
-    mismatched:        12,
-    missingInGstr2b:   25,
-    missingInPr:        8,
-    totalItcAtRisk:  62750,
-    totalInvoices:   342,
-    complianceScore:   89,
-  },
-  suppliers: [
-    { name: 'Mehta Fabrics Pvt Ltd',  gstin: '27AABCM1234F1Z5', invoiceCount: 8,  status: 'not_filed', itcAtRisk: 34200, stateCode: '27', stateName: 'Meghalaya' },
-    { name: 'Rajesh Traders',          gstin: '24XYZRT5678G2Y6', invoiceCount: 12, status: 'filed',     itcAtRisk: 0,     stateCode: '24', stateName: 'Manipur' },
-    { name: 'Patel Distributors',      gstin: '29ACDPD9012H3W7', invoiceCount: 3,  status: 'not_filed', itcAtRisk: 18750, stateCode: '29', stateName: 'Kerala' },
-    { name: 'Kumar Enterprises',       gstin: '06AACKM2345J4V8', invoiceCount: 5,  status: 'mismatch',  itcAtRisk: 9800,  stateCode: '06', stateName: 'Haryana' },
-    { name: 'Sharma & Sons',           gstin: '09AABCS6789K5U9', invoiceCount: 22, status: 'filed',     itcAtRisk: 0,     stateCode: '09', stateName: 'Uttar Pradesh' },
-    { name: 'Verma Wholesale Pvt Ltd', gstin: '07AADVW3456L5T0', invoiceCount: 7,  status: 'not_filed', itcAtRisk: 0,     stateCode: '07', stateName: 'Delhi' },
-  ],
-  invoices: [],
-}
+import { getReconciliationConfig } from '@/lib/reconciliation-registry'
 
 export default function ResultsPage() {
-  const { id }          = useParams<{ id: string }>()
+  const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const [data, setData] = useState<ReconciliationResult | null>(null)
-  const [err,  setErr]  = useState('')
+  const [err, setErr] = useState('')
+  const [downloadingExcel, setDownloadingExcel] = useState(false)
+  const [downloadingPDF, setDownloadingPDF] = useState(false)
 
   useEffect(() => {
-    if (id === 'demo') { setData(DEMO_DATA); return }
-    // A deployed backend (e.g. Render) can be slow to cold-start or momentarily
-    // miss right after save, so retry a couple times before giving up.
     let cancelled = false
     const attempts = 3
     ;(async () => {
@@ -59,227 +33,378 @@ export default function ResultsPage() {
           if (i === attempts - 1) {
             if (!cancelled) setErr((e as Error).message)
           } else {
-            await new Promise(r => setTimeout(r, 1500))
+            await new Promise((r) => setTimeout(r, 1200))
           }
         }
       }
     })()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [id])
 
-  if (err) return (
-    <>
-      <NavBar />
-      <main className="page-container" style={{ textAlign: 'center', paddingTop: 60 }}>
-        <div style={{ fontSize: 40, marginBottom: 16 }}>😕</div>
-        <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-1)', marginBottom: 8 }}>
-          Result not found
-        </div>
-        <div style={{ fontSize: 14, color: 'var(--text-2)', marginBottom: 24 }}>{err}</div>
-        <Link href="/upload" className="neu-btn neu-btn-primary" style={{ padding: '12px 28px' }}>
-          Start new reconciliation
-        </Link>
-      </main>
-    </>
-  )
+  if (err) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--neu-bg)' }}>
+        <NavBar />
+        <main style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', paddingTop: '80px', padding: '40px 20px' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>😕</div>
+          <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1e293b', marginBottom: '8px' }}>
+            Reconciliation Result Not Found
+          </h2>
+          <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '24px' }}>
+            {err}
+          </p>
+          <Link
+            href="/upload"
+            style={{
+              padding: '12px 28px',
+              borderRadius: '12px',
+              background: '#10b981',
+              color: '#ffffff',
+              fontWeight: 700,
+              textDecoration: 'none',
+              boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
+            }}
+          >
+            Start New Reconciliation
+          </Link>
+        </main>
+      </div>
+    )
+  }
 
-  if (!data) return (
-    <>
-      <NavBar />
-      <main className="page-container" style={{ textAlign: 'center', paddingTop: 80 }}>
-        <div style={{
-          width: 48, height: 48, borderRadius: '50%', margin: '0 auto 16px',
-          border: '4px solid var(--primary-bg)',
-          borderTop: '4px solid var(--primary)',
-          animation: 'spin 0.8s linear infinite',
-        }} />
-        <div style={{ fontSize: 14, color: 'var(--text-2)' }}>Loading your results…</div>
-        <div style={{ marginTop: 28, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px,1fr))', gap: 12 }}>
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} style={{ height: 92, borderRadius: 'var(--r-md)', background: 'var(--neu-bg)', border: '1px solid rgba(200,210,230,0.45)', animation: 'pulse 1.4s ease-in-out infinite' }} />
-          ))}
-        </div>
-        <div style={{ marginTop: 12, height: 190, borderRadius: 'var(--r-md)', background: 'var(--neu-bg)', border: '1px solid rgba(200,210,230,0.45)', animation: 'pulse 1.4s ease-in-out infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } } @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }`}</style>
-      </main>
-    </>
-  )
+  if (!data) {
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--neu-bg)' }}>
+        <NavBar />
+        <main style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', paddingTop: '100px' }}>
+          <div
+            style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
+              margin: '0 auto 16px',
+              border: '4px solid #e2e8f0',
+              borderTop: '4px solid #10b981',
+              animation: 'spin 0.8s linear infinite',
+            }}
+          />
+          <div style={{ fontSize: '15px', fontWeight: 600, color: '#475569' }}>
+            Loading reconciliation results...
+          </div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+        </main>
+      </div>
+    )
+  }
 
-  const summary = data?.summary || {
+  const reconType = data.reconType || data.summary?.reconType || 'gstr2b_pr'
+  const config = getReconciliationConfig(reconType)
+  const summary = data.summary || {
     matched: 0,
     mismatched: 0,
     missingInGstr2b: 0,
     missingInPr: 0,
     totalItcAtRisk: 0,
     totalInvoices: 0,
-    complianceScore: 0
+    complianceScore: 100,
   }
-  const suppliers = data?.suppliers || []
-  const atRiskSuppliers  = suppliers.filter(s => s && s.itcAtRisk > 0).length
-  const atRiskInvoices   = suppliers.filter(s => s && s.itcAtRisk > 0).reduce((a, s) => a + (s.invoiceCount || 0), 0)
+
+  const suppliers = data.suppliers || []
+  const invoices = data.invoices || []
+  const summarySections = data.summarySections || []
+  const financialDiff = summary.financialDifference ?? summary.totalItcAtRisk ?? 0
 
   const handleDownloadExcel = async () => {
-    if (!data) return
-    if (data.id === 'demo') {
-      const csvContent = 
-`GSTMatch Reconciliation Summary - June 2025
-Business Name,Kunal Enterprises
-GSTIN,27AAAAA0000A1Z5
-Compliance Score,89%
-Total Invoices,342
-
---- SHEET 1: Summary ---
-Matched Invoices,305
-Mismatched Invoices,12
-Missing in GSTR-2B (At Risk),25
-Extra in GSTR-2B,8
-Total ITC at Risk,₹62750
-
---- SHEET 2: Mismatches ---
-Supplier Name,GSTIN,Invoice No,Date,Your Amount,GSTR-2B Amount,Difference
-Kumar Enterprises,06AACKM2345J4V8,INV-2025-089,2025-06-12,118000,108200,9800
-
---- SHEET 3: Missing Invoices ---
-Supplier Name,GSTIN,Invoice Count,ITC at Risk,Status
-Mehta Fabrics Pvt Ltd,27AABCM1234F1Z5,8,34200,Not Filed
-Patel Distributors,29ACDPD9012H3W7,3,18750,Not Filed
-Verma Wholesale Pvt Ltd,07AADVW3456L5T0,7,0,Not Filed
-`;
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'GSTMatch_Demo_Report.csv'
-      a.click()
-      URL.revokeObjectURL(url)
-      return
-    }
+    setDownloadingExcel(true)
     try {
-      await downloadExcel(data.id)
+      await downloadExcel(data.id, `${config.id}_${data.period.replace(/\s+/g, '_')}_Report.xlsx`)
     } catch (e) {
       alert('Failed to download Excel report')
+    } finally {
+      setDownloadingExcel(false)
     }
   }
 
   const handleDownloadPDF = async () => {
-    if (!data) return
-    if (data.id === 'demo') {
-      const textContent = 
-`GSTMatch - Reconciliation PDF Summary
-====================================
-Period: June 2025
-Business Name: Kunal Enterprises
-GSTIN: 27AAAAA0000A1Z5
-Compliance Score: 89%
-Total Invoices: 342
-Matched Invoices: 305
-Mismatched Invoices: 12
-Missing in GSTR-2B (At Risk): 25
-Extra in GSTR-2B: 8
-Total ITC at Risk: ₹62,750
-
-Supplier Summary:
-- Mehta Fabrics Pvt Ltd (27AABCM1234F1Z5): 8 Invoices, ❌ Not Filed, ITC at Risk: ₹34,200
-- Rajesh Traders (24XYZRT5678G2Y6): 12 Invoices, ✅ Filed, ITC at Risk: ₹0
-- Patel Distributors (29ACDPD9012H3W7): 3 Invoices, ❌ Not Filed, ITC at Risk: ₹18,750
-- Kumar Enterprises (06AACKM2345J4V8): 5 Invoices, ⚠️ Mismatch, ITC at Risk: ₹9,800
-- Sharma & Sons (09AABCS6789K5U9): 22 Invoices, ✅ Filed, ITC at Risk: ₹0
-- Verma Wholesale Pvt Ltd (07AADVW3456L5T0): 7 Invoices, ❌ Not Filed, ITC at Risk: ₹0
-`;
-      const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'GSTMatch_Demo_Summary.txt'
-      a.click()
-      URL.revokeObjectURL(url)
-      return
-    }
+    setDownloadingPDF(true)
     try {
-      await downloadPDF(data.id)
+      await downloadPDF(data.id, `${config.id}_${data.period.replace(/\s+/g, '_')}_Summary.pdf`)
     } catch (e) {
       alert('Failed to download PDF summary')
+    } finally {
+      setDownloadingPDF(false)
     }
   }
 
   return (
-    <>
+    <div style={{ minHeight: '100vh', background: 'var(--neu-bg)' }}>
       <NavBar />
 
-      <main className="page-container">
-        {/* Header */}
-        <div style={{ marginBottom: 20 }}>
-          <h1 style={{ fontSize: 'var(--fs-h2)', fontWeight: 700, color: 'var(--text-1)' }}>
-            Reconciliation results
-          </h1>
-          <p style={{ fontSize: 13, color: 'var(--text-2)', marginTop: 3 }}>
-            {data?.period || 'Unknown Period'} • {data?.gstin || 'No GSTIN'} • {data?.businessName || 'Unnamed Business'}
-          </p>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            background: 'var(--info-bg)', color: 'var(--info)',
-            fontSize: 12, fontWeight: 600, padding: '4px 12px',
-            borderRadius: 'var(--r-pill)', marginTop: 8,
-          }}>
-            📅 {(summary?.totalInvoices) || 0} invoices processed •{' '}
-            Compliance score {(summary?.complianceScore) || 0}%
+      <main style={{ maxWidth: '1140px', margin: '0 auto', padding: '32px 20px 80px' }}>
+        {/* Header Bar */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '24px',
+            flexWrap: 'wrap',
+            gap: '16px',
+          }}
+        >
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  color: '#0284c7',
+                  background: '#e0f2fe',
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {config.categoryLabel}
+              </span>
+              <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>
+                Period: {data.period} • GSTIN: {data.gstin}
+              </span>
+            </div>
+            <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#1e293b', margin: 0 }}>
+              {config.name} Results
+            </h1>
+          </div>
+
+          {/* Action Download Buttons */}
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={handleDownloadExcel}
+              disabled={downloadingExcel}
+              style={{
+                padding: '10px 18px',
+                borderRadius: '10px',
+                background: 'var(--neu-bg)',
+                boxShadow: '3px 3px 7px var(--neu-dark), -3px -3px 7px var(--neu-light)',
+                border: '1px solid rgba(200,208,231,0.8)',
+                color: '#0f172a',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: downloadingExcel ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <span>📊</span>
+              <span>{downloadingExcel ? 'Generating...' : 'Download Excel'}</span>
+            </button>
+            <button
+              onClick={handleDownloadPDF}
+              disabled={downloadingPDF}
+              style={{
+                padding: '10px 18px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: '#ffffff',
+                fontSize: '13px',
+                fontWeight: 700,
+                border: 'none',
+                cursor: downloadingPDF ? 'not-allowed' : 'pointer',
+                boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <span>📑</span>
+              <span>{downloadingPDF ? 'Generating...' : 'Download PDF Summary'}</span>
+            </button>
           </div>
         </div>
 
-        {/* Metric cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px,1fr))', gap: 12, marginBottom: 18 }}>
-          <MetricCard icon="✅" value={summary.matched}         label="Matched"          color="success" />
-          <MetricCard icon="⚠️" value={summary.mismatched}      label="Mismatch"         color="warning" />
-          <MetricCard icon="❌" value={summary.missingInGstr2b} label="Missing in GSTR-2B" color="danger" />
-          <MetricCard icon="🔍" value={summary.missingInPr}     label="Extra in GSTR-2B" color="info" />
+        {/* Financial Impact Banner */}
+        <div
+          style={{
+            borderRadius: '16px',
+            padding: '20px 24px',
+            background: financialDiff > 0 ? '#fff1f2' : '#f0fdf4',
+            border: financialDiff > 0 ? '1px solid #fecdd3' : '1px solid #bbf7d0',
+            boxShadow: '4px 4px 10px var(--neu-dark), -4px -4px 10px var(--neu-light)',
+            marginBottom: '28px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '16px',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: '12px', fontWeight: 800, color: financialDiff > 0 ? '#be123c' : '#15803d', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              {config.financialMetricLabel}
+            </div>
+            <div style={{ fontSize: '28px', fontWeight: 900, color: financialDiff > 0 ? '#9f1239' : '#166534', margin: '4px 0' }}>
+              ₹{financialDiff.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </div>
+            <div style={{ fontSize: '13px', color: financialDiff > 0 ? '#881337' : '#14532d' }}>
+              {config.financialMetricDescription}
+            </div>
+          </div>
+
+          {/* Compliance Score Pill */}
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '12px 20px',
+              borderRadius: '12px',
+              background: '#ffffff',
+              boxShadow: 'inset 2px 2px 4px rgba(0,0,0,0.05)',
+            }}
+          >
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+              Compliance Score
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: 900, color: summary.complianceScore >= 80 ? '#10b981' : summary.complianceScore >= 50 ? '#f59e0b' : '#ef4444' }}>
+              {summary.complianceScore} / 100
+            </div>
+            <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+              {summary.complianceScore >= 80 ? 'Good Standing' : 'Action Needed'}
+            </div>
+          </div>
         </div>
 
-        {/* ITC Alert */}
-        {summary.totalItcAtRisk > 0 && (
-          <div style={{ marginBottom: 20 }}>
-            <ITCAlert
-              amount={summary.totalItcAtRisk}
-              supplierCount={atRiskSuppliers}
-              invoiceCount={atRiskInvoices}
-            />
+        {/* 4 Top Metric Cards */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
+            gap: '16px',
+            marginBottom: '32px',
+          }}
+        >
+          <MetricCard
+            label="Total Records"
+            value={summary.totalInvoices.toLocaleString('en-IN')}
+            icon="📋"
+            color="default"
+          />
+          <MetricCard
+            label="Matched Records"
+            value={summary.matched.toLocaleString('en-IN')}
+            icon="✅"
+            color="success"
+          />
+          <MetricCard
+            label="Value Mismatches"
+            value={summary.mismatched.toLocaleString('en-IN')}
+            icon="⚠️"
+            color="warning"
+          />
+          <MetricCard
+            label={`Missing in ${config.file2.shortName}`}
+            value={summary.missingInGstr2b.toLocaleString('en-IN')}
+            icon="❌"
+            color="danger"
+          />
+        </div>
+
+        {/* 1. If Summary-Level Reconciliation (3B vs 1, 9 vs Books, 9C vs Books) */}
+        {config.level === 'summary' && summarySections.length > 0 && (
+          <div
+            style={{
+              borderRadius: '16px',
+              background: 'var(--neu-bg)',
+              boxShadow: '6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light)',
+              padding: '24px',
+              marginBottom: '32px',
+            }}
+          >
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#1e293b', marginBottom: '6px' }}>
+              Return Section Comparison Table
+            </h3>
+            <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '16px' }}>
+              Table-wise cross-verification of taxable turnover and tax liabilities between {config.file1.shortName} and {config.file2.shortName}
+            </p>
+
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid rgba(200,208,231,0.8)', color: '#475569', fontSize: '11px', textTransform: 'uppercase' }}>
+                    <th style={{ padding: '10px 12px' }}>Table / Section</th>
+                    <th style={{ padding: '10px 12px' }}>Description</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>{config.file1.shortName}</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>{config.file2.shortName}</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'right' }}>Variance</th>
+                    <th style={{ padding: '10px 12px', textAlign: 'center' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summarySections.map((sec, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid rgba(200,208,231,0.4)', background: idx % 2 === 0 ? 'rgba(255,255,255,0.4)' : 'transparent' }}>
+                      <td style={{ padding: '10px 12px', fontWeight: 700, color: '#1e293b' }}>
+                        {sec.sectionId}
+                      </td>
+                      <td style={{ padding: '10px 12px', color: '#475569' }}>
+                        <div style={{ fontWeight: 600 }}>{sec.sectionName}</div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>{sec.description}</div>
+                      </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
+                        ₹{sec.file1Value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
+                        ₹{sec.file2Value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: sec.totalDifference > 0 ? '#ef4444' : '#10b981' }}>
+                        ₹{sec.totalDifference.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                        <span
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '3px 8px',
+                            borderRadius: '12px',
+                            background: sec.status === 'matched' ? '#dcfce7' : '#fee2e2',
+                            color: sec.status === 'matched' ? '#15803d' : '#b91c1c',
+                          }}
+                        >
+                          {sec.status === 'matched' ? 'Matched' : 'Variance Found'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
-        {/* Supplier table */}
-        <div style={{ marginBottom: 20 }}>
-          <SupplierTable suppliers={suppliers} />
-        </div>
+        {/* 2. If Invoice-Level Reconciliation (2B vs PR, 2A vs 2B, Sales vs 1, IMS vs 2B) */}
+        {config.level === 'invoice' && (
+          <>
+            {/* Supplier / Customer summary table */}
+            {suppliers.length > 0 && (
+              <div style={{ marginBottom: '32px' }}>
+                <SupplierTable suppliers={suppliers} />
+              </div>
+            )}
 
-        {/* Action bar */}
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', paddingTop: 4 }}>
-          <NeuButton onClick={handleDownloadExcel}>
-            📥 Download Excel report
-          </NeuButton>
-          <NeuButton onClick={handleDownloadPDF}>
-            📄 Download PDF summary
-          </NeuButton>
-          <Link href="/upload" className="neu-btn" style={{ padding: '11px 20px', fontSize: 14 }}>
-            🔄 New reconciliation
-          </Link>
-        </div>
+            {/* Detailed Invoice Table */}
+            {invoices.length > 0 && (
+              <InvoiceTable
+                invoices={invoices}
+                reconType={reconType}
+                file1Name={config.file1.shortName}
+                file2Name={config.file2.shortName}
+              />
+            )}
+          </>
+        )}
 
-        {/* Report Content Description */}
-        <div className="neu-inset" style={{
-          padding: '16px 20px',
-          marginTop: 20,
-          background: 'var(--neu-bg)',
-          borderRadius: 'var(--r-sm)',
-        }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', marginBottom: 8 }}>
-            📊 What&apos;s inside your Mismatch Report download:
-          </div>
-          <ul style={{ fontSize: 12, color: 'var(--text-2)', paddingLeft: 18, lineHeight: 1.6 }}>
-            <li><strong>Sheet 1 — Summary:</strong> Total matched, mismatched, ITC at risk, and period covered.</li>
-            <li><strong>Sheet 2 — Mismatches:</strong> Every invoice where amounts don&apos;t agree, with differences highlighted.</li>
-            <li><strong>Sheet 3 — Missing Invoices:</strong> Every invoice where supplier hasn&apos;t filed, grouped by supplier.</li>
-          </ul>
-        </div>
+        <TrustBadges />
       </main>
-    </>
+    </div>
   )
 }

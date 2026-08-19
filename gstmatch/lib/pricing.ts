@@ -1,11 +1,9 @@
 // Central source of truth for plans, pricing packs, and plan/expiry status.
-// Shared by the pricing page, the checkout session route, the Cashfree webhook,
-// and the dashboard & upload pages.
+// Shared by the pricing page, checkout session route, Cashfree webhook, dashboard, and upload pages.
 
-export type Tier = 'starter' | 'growth' | 'deluxe'
+export type Tier = 'free' | 'starter' | 'growth' | 'pro' | 'ca_pro' | 'deluxe'
 
 export const FREE_RECON_LIMIT = 2
-
 
 export interface Pack {
   tier: Tier
@@ -13,77 +11,125 @@ export interface Pack {
   durationDays: number // length of the paid period
 }
 
-// ── Plans (feature copy + price + duration) ────────────────────────────────
 export interface TierInfo {
   id: Tier
   name: string
   desc: string
-  amount: number // INR charged once at checkout
-  durationDays: number // length of the paid period
-  periodLabel: string // human-readable duration, e.g. "30 days" / "1 year"
+  amount: number // Monthly INR price
+  annualAmount?: number
+  durationDays: number
+  periodLabel: string
+  popular?: boolean
   features: string[]
 }
 
 export const TIERS: TierInfo[] = [
   {
+    id: 'free',
+    name: 'Free',
+    desc: 'Try GSTMatch free forever',
+    amount: 0,
+    durationDays: 3650,
+    periodLabel: 'forever',
+    features: [
+      '2 reconciliations / month',
+      'Up to 100 invoices / recon',
+      'All GST reconciliation types',
+      'Sample report download',
+      'Excel report download',
+      '1 GSTIN profile',
+      'Email support',
+    ],
+  },
+  {
     id: 'starter',
     name: 'Starter',
-    desc: 'Perfect for small traders and retailers.',
-    amount: 399,
+    desc: 'Perfect for small businesses and individual users',
+    amount: 299,
+    annualAmount: 2990,
     durationDays: 30,
-    periodLabel: '30 days',
+    periodLabel: 'month',
     features: [
-      '1 GSTIN profile',
-      'Up to 500 invoices per month',
+      '10 reconciliations / month',
+      'Up to 500 invoices / recon',
+      'All GST reconciliation types',
       'Excel & PDF report download',
-      'Fuzzy matching engine (rapidfuzz)',
-      'Email compliance support',
+      '1 GSTIN profile',
+      'Basic supplier tracker',
+      'ITC at risk summary',
+      'Email support',
     ],
   },
   {
     id: 'growth',
     name: 'Growth',
-    desc: 'Best for growing MSMEs and distributors.',
-    amount: 699,
+    desc: 'Best for growing businesses and small CA firms',
+    amount: 549,
+    annualAmount: 4999,
+    popular: true,
     durationDays: 30,
-    periodLabel: '30 days',
+    periodLabel: 'month',
     features: [
-      'Up to 3 GSTIN profiles',
-      'Up to 2000 invoices per month',
+      '30 reconciliations / month',
+      'Up to 2,000 invoices / recon',
+      'All GST reconciliation types',
+      'ITC at risk dashboard',
+      'Supplier tracker with follow-up',
       'Excel & PDF report download',
-      'Fuzzy matching engine (rapidfuzz)',
-      'WhatsApp compliance support',
-      'Compliance score history trend',
+      '3 GSTIN profiles',
+      'Reconciliation history',
+      'WhatsApp support',
     ],
   },
   {
-    id: 'deluxe',
-    name: 'Deluxe',
-    desc: 'Annual plan for high-volume businesses & CAs.',
-    amount: 4999,
-    durationDays: 365,
-    periodLabel: '1 year',
+    id: 'pro',
+    name: 'Professional',
+    desc: 'Advanced features for professional users',
+    amount: 999,
+    annualAmount: 8999,
+    durationDays: 30,
+    periodLabel: 'month',
     features: [
-      'Up to 10 GSTIN profiles',
-      'Unlimited invoices',
-      'Excel & PDF report download',
-      'Fuzzy matching engine (rapidfuzz)',
-      'Priority WhatsApp + email support',
-      'Compliance score history trend',
+      '100 reconciliations / month',
+      'Up to 10,000 invoices / recon',
+      'All GST reconciliation types',
+      'Advanced reports & filters',
       'Custom matching rules',
+      '10 GSTIN profiles',
+      'Supplier follow-up & notes',
+      'Compliance score & trend',
+      'Priority support',
+    ],
+  },
+  {
+    id: 'ca_pro',
+    name: 'CA / Business Pro',
+    desc: 'For CA firms and businesses with multiple clients',
+    amount: 2199,
+    annualAmount: 19999,
+    durationDays: 30,
+    periodLabel: 'month',
+    features: [
+      'Unlimited reconciliations*',
+      'Up to 50,000 invoices / recon',
+      'All GST reconciliation types',
+      'Multi-client dashboard',
+      '25+ GSTIN profiles',
+      'Team members & roles',
+      'Custom reports',
       'Dedicated account manager',
+      'Priority WhatsApp & email support',
     ],
   },
 ]
 
-// ── Purchasable packs (one per tier) ───────────────────────────────────────
-// Amounts are unique, so the webhook can resolve a paid order back to its pack
-// purely from order_amount.
-export const PRICING_PACKS: Pack[] = TIERS.map((t) => ({
-  tier: t.id,
-  amount: t.amount,
-  durationDays: t.durationDays,
-}))
+export const PRICING_PACKS: Pack[] = [
+  { tier: 'starter', amount: 299, durationDays: 30 },
+  { tier: 'growth', amount: 549, durationDays: 30 },
+  { tier: 'pro', amount: 999, durationDays: 30 },
+  { tier: 'ca_pro', amount: 2199, durationDays: 30 },
+  { tier: 'deluxe', amount: 4999, durationDays: 365 },
+]
 
 export function getPack(tier: Tier | string): Pack | undefined {
   return PRICING_PACKS.find((p) => p.tier === tier)
@@ -93,13 +139,12 @@ export function getPackByAmount(amount: number): Pack | undefined {
   return PRICING_PACKS.find((p) => p.amount === amount)
 }
 
-// ── Plan / expiry status (used by dashboard & upload) ───────────────────────
 export interface PlanStatus {
-  plan: string // stored plan value ('free' | 'starter' | 'growth' | 'deluxe')
+  plan: string
   planExpiresAt: string | null
-  active: boolean // paid AND not yet expired
-  effectivePlan: string // 'free' when inactive/expired, else the plan
-  daysRemaining: number | null // whole days until expiry (null if no expiry set)
+  active: boolean
+  effectivePlan: string
+  daysRemaining: number | null
 }
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24
@@ -108,7 +153,7 @@ export function computePlanStatus(
   plan: string,
   planExpiresAt: string | null
 ): Omit<PlanStatus, 'plan' | 'planExpiresAt'> {
-  const isPaid = plan === 'starter' || plan === 'growth' || plan === 'deluxe'
+  const isPaid = ['starter', 'growth', 'pro', 'ca_pro', 'deluxe'].includes(plan)
   if (!isPaid || !planExpiresAt) {
     return { active: false, effectivePlan: 'free', daysRemaining: null }
   }
@@ -122,9 +167,6 @@ export function computePlanStatus(
   }
 }
 
-// Read the user's plan (+ expiry) from Supabase. Resilient to the
-// `plan_expires_at` column not existing yet (migration not run) and to RLS
-// denying the read — both gracefully fall back to treating the user as free.
 export async function fetchPlanStatus(supabaseClient: any, userId: string): Promise<PlanStatus> {
   let plan = 'free'
   let planExpiresAt: string | null = null
@@ -136,7 +178,6 @@ export async function fetchPlanStatus(supabaseClient: any, userId: string): Prom
     .maybeSingle()
 
   if (error && /plan_expires_at|column|relation/i.test(error.message || '')) {
-    // Column (or table) missing — fall back to reading just the plan.
     const { data: data2 } = await supabaseClient
       .from('users')
       .select('plan')
@@ -152,7 +193,6 @@ export async function fetchPlanStatus(supabaseClient: any, userId: string): Prom
   return { plan, planExpiresAt, ...status }
 }
 
-// Format an ISO timestamp as a readable Indian date (e.g. "12 Sep 2025").
 export function formatExpiryDate(iso: string | null): string | null {
   if (!iso) return null
   try {

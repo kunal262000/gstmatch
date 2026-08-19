@@ -8,16 +8,22 @@ import { extractGstinStateCode, getGstinStateName } from './types'
 
 // ─── Upload files and start reconciliation ────
 export async function startReconciliation(
-  purchaseRegister: File,
-  gstr2bFile: File,
+  file1: File,
+  file2: File,
   period: string,
   gstin: string,
   businessName: string,
+  reconType: string = 'gstr2b_pr',
   userId?: string
 ): Promise<UploadResponse> {
   const form = new FormData()
-  form.append('purchase_register', purchaseRegister)
-  form.append('gstr2b', gstr2bFile)
+  form.append('file1', file1)
+  form.append('file2', file2)
+  // Backward compatibility
+  form.append('purchase_register', file1)
+  form.append('gstr2b', file2)
+
+  form.append('recon_type', reconType)
   form.append('period', period)
   form.append('gstin', gstin)
   form.append('business_name', businessName)
@@ -31,7 +37,7 @@ export async function startReconciliation(
   })
 
   if (!res.ok) {
-    const err = await res.json()
+    const err = await res.json().catch(() => ({ detail: 'Reconciliation request failed' }))
     throw new Error(err.detail || 'Reconciliation failed')
   }
 
@@ -39,10 +45,6 @@ export async function startReconciliation(
 }
 
 // ─── Helpers ────────────────────────────────────
-// Attach the current user's Supabase access token so backend routes gated by
-// JWT ownership checks (e.g. current_user_or_401) can authorize the request.
-// If the token isn't in the SSR cookie yet (client-side nav race), refresh it so
-// protected fetch calls don't 401 on the deployed site.
 async function authHeader(): Promise<HeadersInit> {
   const { data: { session } } = await supabase.auth.getSession()
   if (session?.access_token) {
@@ -70,7 +72,7 @@ export async function getResult(jobId: string): Promise<ReconciliationResult> {
 }
 
 // ─── Download Excel report ────────────────────
-export async function downloadExcel(jobId: string): Promise<void> {
+export async function downloadExcel(jobId: string, customFilename?: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/results/${jobId}/excel`, {
     headers: await authHeader(),
   })
@@ -80,13 +82,13 @@ export async function downloadExcel(jobId: string): Promise<void> {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `GST_Report_${jobId}.xlsx`
+  a.download = customFilename || `GST_Report_${jobId}.xlsx`
   a.click()
   URL.revokeObjectURL(url)
 }
 
 // ─── Download PDF report ──────────────────────
-export async function downloadPDF(jobId: string): Promise<void> {
+export async function downloadPDF(jobId: string, customFilename?: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/results/${jobId}/pdf`, {
     headers: await authHeader(),
   })
@@ -96,7 +98,7 @@ export async function downloadPDF(jobId: string): Promise<void> {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `GST_Summary_${jobId}.pdf`
+  a.download = customFilename || `GST_Summary_${jobId}.pdf`
   a.click()
   URL.revokeObjectURL(url)
 }

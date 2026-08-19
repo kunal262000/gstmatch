@@ -5,21 +5,14 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import ViewTransitionLink from '@/components/ViewTransitionLink'
-
-const TABS = [
-  { label: 'Home', href: '/' },
-  { label: 'Upload', href: '/upload' },
-  { label: 'Dashboard', href: '/dashboard' },
-  { label: 'Pricing', href: '/pricing' },
-  { label: 'Blog', href: '/blog' },
-]
-
+import { RECONCILIATION_TYPES } from '@/lib/reconciliation-registry'
 
 export default function NavBar() {
   const path = usePathname()
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [showReconDropdown, setShowReconDropdown] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -44,13 +37,33 @@ export default function NavBar() {
     }
   }, [])
 
-  const tabs = isAdmin
-    ? [...TABS, { label: 'Admin', href: '/admin' }]
-    : TABS
-
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/')
+  }
+
+  const allRecons = Object.values(RECONCILIATION_TYPES)
+
+  const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWith(href))
+
+  const tabPillStyle = (href: string): React.CSSProperties => {
+    const active = isActive(href)
+    return {
+      padding: '7px 18px',
+      borderRadius: 'var(--r-pill)',
+      fontSize: 13,
+      fontWeight: 500,
+      textDecoration: 'none',
+      transition: 'all 0.2s',
+      color: active ? 'var(--primary)' : 'var(--text-3)',
+      background: 'var(--neu-bg)',
+      boxShadow: active
+        ? '3px 3px 8px var(--neu-dark), -3px -3px 8px var(--neu-light)'
+        : 'none',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+    }
   }
 
   return (
@@ -86,26 +99,126 @@ export default function NavBar() {
 
       {/* Tab pills */}
       <div style={{
-        display: 'flex', gap: 4, padding: 4, borderRadius: 'var(--r-pill)',
+        display: 'flex', alignItems: 'center', gap: 4, padding: 4, borderRadius: 'var(--r-pill)',
         boxShadow: 'inset 3px 3px 6px var(--neu-dark), inset -3px -3px 6px var(--neu-light)',
         background: 'var(--neu-bg)',
       }}>
-        {tabs.map(tab => {
-          const active = path === tab.href
-          return (
-            <ViewTransitionLink key={tab.href} href={tab.href} style={{
-              padding: '7px 18px', borderRadius: 'var(--r-pill)', fontSize: 13,
-              fontWeight: 500, textDecoration: 'none', transition: 'all 0.2s',
-              color: active ? 'var(--primary)' : 'var(--text-3)',
+        <ViewTransitionLink href="/" style={tabPillStyle('/')}>
+          Home
+        </ViewTransitionLink>
+
+        <ViewTransitionLink href="/upload" style={tabPillStyle('/upload')}>
+          Upload
+        </ViewTransitionLink>
+
+        {/* Reconciliation dropdown */}
+        <div
+          style={{ position: 'relative' }}
+          onMouseEnter={() => setShowReconDropdown(true)}
+          onMouseLeave={() => setShowReconDropdown(false)}
+        >
+          <ViewTransitionLink href="/reconciliation" style={tabPillStyle('/reconciliation')}>
+            <span>Reconciliation</span>
+            <span style={{ fontSize: 10 }}>▾</span>
+          </ViewTransitionLink>
+
+          {showReconDropdown && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                width: '280px',
+                borderRadius: '12px',
+                background: '#ffffff',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                padding: '8px',
+                zIndex: 100,
+                border: '1px solid rgba(200,208,231,0.6)',
+              }}
+            >
+              <div style={{ padding: '6px 10px', fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+                Reconciliation Types
+              </div>
+              {allRecons.map((recon) => (
+                <Link
+                  key={recon.id}
+                  href={`/upload?type=${recon.id}`}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    textDecoration: 'none',
+                    transition: 'background 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
+                    {recon.name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>
+                    {recon.categoryLabel}
+                  </div>
+                </Link>
+              ))}
+              <div style={{ borderTop: '1px solid #f1f5f9', marginTop: '4px', paddingTop: '4px' }}>
+                <Link
+                  href="/reconciliation"
+                  style={{
+                    display: 'block',
+                    padding: '6px 10px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: '#059669',
+                    textDecoration: 'none',
+                    textAlign: 'center',
+                  }}
+                >
+                  View All Reconciliations →
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <ViewTransitionLink href="/dashboard" style={tabPillStyle('/dashboard')}>
+          Dashboard
+        </ViewTransitionLink>
+
+        <ViewTransitionLink href="/reports" style={tabPillStyle('/reports')}>
+          Reports
+        </ViewTransitionLink>
+
+        <ViewTransitionLink href="/pricing" style={tabPillStyle('/pricing')}>
+          Pricing
+        </ViewTransitionLink>
+
+        <ViewTransitionLink href="/blog" style={tabPillStyle('/blog')}>
+          Blog
+        </ViewTransitionLink>
+
+        {isAdmin && (
+          <ViewTransitionLink
+            href="/admin"
+            style={{
+              padding: '7px 18px',
+              borderRadius: 'var(--r-pill)',
+              fontSize: 13,
+              fontWeight: 700,
+              textDecoration: 'none',
+              transition: 'all 0.2s',
+              color: '#d97706',
               background: 'var(--neu-bg)',
-              boxShadow: active
+              boxShadow: isActive('/admin')
                 ? '3px 3px 8px var(--neu-dark), -3px -3px 8px var(--neu-light)'
                 : 'none',
-            }}>
-              {tab.label}
-            </ViewTransitionLink>
-          )
-        })}
+            }}
+          >
+            Admin
+          </ViewTransitionLink>
+        )}
       </div>
 
       {/* Auth state CTA / Controls */}

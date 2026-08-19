@@ -69,7 +69,14 @@ export async function GET(req: Request) {
     let planName: string | null = null
     const pack = getPackByAmount(Number(data.order_amount))
     if (pack) {
-      const tierName: Record<Tier, string> = { starter: 'Starter', growth: 'Growth', deluxe: 'Deluxe' }
+      const tierName: Record<Tier, string> = {
+        free: 'Free',
+        starter: 'Starter',
+        growth: 'Growth',
+        pro: 'Professional',
+        ca_pro: 'CA / Business Pro',
+        deluxe: 'Deluxe (Annual)',
+      }
       planName = tierName[pack.tier] ?? pack.tier
     }
 

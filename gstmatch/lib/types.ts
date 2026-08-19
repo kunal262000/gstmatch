@@ -1,5 +1,4 @@
 // ─── India State Codes (GSTIN first 2 digits) ────────────────
-// All 36 Indian States and Union Territories GSTIN prefixes
 export const INDIAN_STATES: Record<string, string> = {
   '01': 'Jammu & Kashmir',
   '02': 'Himachal Pradesh',
@@ -28,7 +27,7 @@ export const INDIAN_STATES: Record<string, string> = {
   '17': 'Daman & Diu',
   '18': 'Dadra & Nagar Haveli',
   '19': 'Maharashtra',
-  '20': ' Karnataka',
+  '20': 'Karnataka',
   '29': 'Kerala',
   '30': 'Tamil Nadu',
   '31': 'Puducherry',
@@ -36,8 +35,9 @@ export const INDIAN_STATES: Record<string, string> = {
   '33': 'Telangana',
   '34': 'Lakshadweep',
   '35': 'Andaman & Nicobar',
-  '36': 'Sikkim', // duplicate, keep for completeness
-  '37': ' Goa',
+  '36': 'Telangana (Old)',
+  '37': 'Andhra Pradesh (New)',
+  '38': 'Ladakh',
 }
 
 export function extractGstinStateCode(gstin: string): string | null {
@@ -51,7 +51,7 @@ export function getGstinStateName(gstin: string): string {
   return stateCode ? INDIAN_STATES[stateCode] || stateCode : 'Unknown'
 }
 
-// ─── Supplier ────────────────────────────────
+// ─── Supplier / Counterparty ─────────────────
 export type SupplierStatus = 'filed' | 'not_filed' | 'mismatch'
 
 export interface Supplier {
@@ -62,6 +62,7 @@ export interface Supplier {
   itcAtRisk: number   // in rupees
   stateCode: string   // 2-digit GSTIN state code
   stateName: string   // Full state/UT name
+  financialVariance?: number
 }
 
 // ─── Single invoice row ───────────────────────
@@ -83,6 +84,24 @@ export interface InvoiceRow {
   igst: number
   cgst: number
   sgst: number
+  actionStatus?: string
+  taxableDiff?: number
+  taxDiff?: number
+}
+
+// ─── Summary Section Row (For 3B vs 1, 9, 9C) ──
+export interface SummarySectionRow {
+  sectionId: string
+  sectionName: string
+  description: string
+  file1Value: number
+  file2Value: number
+  taxableDifference: number
+  igstDiff: number
+  cgstDiff: number
+  sgstDiff: number
+  totalDifference: number
+  status: 'matched' | 'mismatch' | 'missing_in_file1' | 'missing_in_file2' | string
 }
 
 // ─── Reconciliation result ────────────────────
@@ -94,23 +113,32 @@ export interface ReconciliationSummary {
   totalItcAtRisk: number   // rupees
   totalInvoices: number
   complianceScore: number   // 0–100
+  financialDifference?: number
+  financialMetricLabel?: string
+  reconType?: string
+  matchAccuracy?: number
+  totalRecoveredOrValid?: number
 }
 
 export interface ReconciliationResult {
   id: string
-  period: string        // e.g. "June 2025"
+  reconType?: string
+  period: string        // e.g. "August 2026"
   gstin: string
   businessName: string
   processedAt: string        // ISO date string
   summary: ReconciliationSummary
   suppliers: Supplier[]
   invoices: InvoiceRow[]
+  summarySections?: SummarySectionRow[]
+  issueBreakdown?: Record<string, number>
 }
 
 // ─── Upload form state ────────────────────────
 export interface UploadFormState {
-  purchaseRegister: File | null
-  gstr2bFile: File | null
+  file1: File | null
+  file2: File | null
+  reconType: string
   period: string
   gstin: string
   businessName: string
@@ -119,6 +147,7 @@ export interface UploadFormState {
 // ─── API responses ────────────────────────────
 export interface UploadResponse {
   jobId: string
+  reconType?: string
   message: string
 }
 
