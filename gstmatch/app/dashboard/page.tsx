@@ -88,7 +88,7 @@ export default function DashboardPage() {
       if (d && d.summary) {
         totalInvoices += d.summary.totalInvoices || 0
         totalMatched += d.summary.matched || 0
-        totalAtRisk += d.summary.financialDifference ?? d.summary.totalItcAtRisk ?? 0
+        totalAtRisk += d.summary.totalItcAtRisk || 0
         totalRecovered += d.summary.totalRecoveredOrValid || 0
         scoreSum += d.summary.complianceScore || 0
       }
