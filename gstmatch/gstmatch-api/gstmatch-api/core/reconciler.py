@@ -215,7 +215,7 @@ def reconcile_invoice_datasets(
                 invoiceDate=normalize_date(r1.get("invoice_date", "")),
                 yourAmount=amt1,
                 gstr2bAmount=None,
-                difference=amt1,
+                difference=tax1,
                 category=InvoiceCategory.missing_in_gstr2b,
                 igst=float(r1.get("igst", 0.0)),
                 cgst=float(r1.get("cgst", 0.0)),
