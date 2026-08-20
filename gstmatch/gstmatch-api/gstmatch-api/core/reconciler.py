@@ -402,13 +402,14 @@ def reconcile_summary_datasets(
 
     total_sections = len(summary_rows)
     accuracy = round((matched_sections / total_sections * 100.0) if total_sections > 0 else 100.0, 1)
+    total_itc_at_risk = round(sum(row.igstDiff + row.cgstDiff + row.sgstDiff for row in summary_rows), 2)
 
     summary = ReconciliationSummary(
         matched=matched_sections,
         mismatched=mismatched_sections,
         missingInGstr2b=0,
         missingInPr=0,
-        totalItcAtRisk=round(total_financial_diff, 2),
+        totalItcAtRisk=total_itc_at_risk,
         totalInvoices=total_sections,
         complianceScore=int(accuracy),
         financialDifference=round(total_financial_diff, 2),

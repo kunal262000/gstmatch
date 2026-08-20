@@ -93,6 +93,21 @@ class ReconciliationSummary(BaseModel):
     financialDifference:   Optional[float] = 0.0
 
 
+# ── Original summary section row (for GSTR-3B vs GSTR-1 legacy compatibility) ──
+class SummarySectionRow(BaseModel):
+    sectionId:         str
+    sectionName:       str
+    description:       str
+    file1Value:        float = 0.0
+    file2Value:        float = 0.0
+    taxableDifference: float = 0.0
+    igstDiff:          float = 0.0
+    cgstDiff:          float = 0.0
+    sgstDiff:          float = 0.0
+    totalDifference:   float = 0.0
+    status:            str = "matched"   # "matched", "mismatch", "missing_in_file1", "missing_in_file2"
+
+
 class ReconciliationResult(BaseModel):
     id:           str
     period:       str
@@ -140,20 +155,6 @@ class SummaryReconciliationResult(BaseModel):
     complianceScore:    int
     lineItems:          List[SummaryLineItem]
 
-
-# ── Original summary section row (for GSTR-3B vs GSTR-1 legacy compatibility) ──
-class SummarySectionRow(BaseModel):
-    sectionId:         str
-    sectionName:       str
-    description:       str
-    file1Value:        float = 0.0
-    file2Value:        float = 0.0
-    taxableDifference: float = 0.0
-    igstDiff:          float = 0.0
-    cgstDiff:          float = 0.0
-    sgstDiff:          float = 0.0
-    totalDifference:   float = 0.0
-    status:            str = "matched"   # "matched", "mismatch", "missing_in_file1", "missing_in_file2"
 
 # ── NEW — reconciliation type metadata, served by GET /api/reconciliation-types ──
 class ReconTypeInfo(BaseModel):
