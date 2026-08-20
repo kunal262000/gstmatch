@@ -9,13 +9,14 @@ import SupplierTable from '@/components/SupplierTable'
 import InvoiceTable from '@/components/InvoiceTable'
 import TrustBadges from '@/components/TrustBadges'
 import { getResult, downloadExcel, downloadPDF } from '@/lib/api'
-import { ReconciliationResult } from '@/lib/types'
+import { ReconciliationResult, SummaryReconciliationResult } from '@/lib/types'
 import { getReconciliationConfig } from '@/lib/reconciliation-registry'
 
 export default function ResultsPage() {
-  const { id } = useParams<{ id: string }>()
+  const { id } = useParams()
+  const jobId = typeof id === "string" ? id : (id?.[0] || "")
   const router = useRouter()
-  const [data, setData] = useState<ReconciliationResult | null>(null)
+  const [data, setData] = useState<ReconciliationResult | SummaryReconciliationResult | null>(null)
   const [err, setErr] = useState('')
   const [downloadingExcel, setDownloadingExcel] = useState(false)
   const [downloadingPDF, setDownloadingPDF] = useState(false)
@@ -26,7 +27,7 @@ export default function ResultsPage() {
     ;(async () => {
       for (let i = 0; i < attempts; i++) {
         try {
-          const d = await getResult(id)
+          const d = await getResult(jobId)
           if (!cancelled) setData(d)
           return
         } catch (e) {
@@ -99,27 +100,25 @@ export default function ResultsPage() {
     )
   }
 
-  const reconType = data.reconType || data.summary?.reconType || 'gstr2b_pr'
+  const isSummary = data && (data as any).engine === 'summary'
+  const reconType = data.reconType || (data as any).summary?.reconType || 'gstr2b_pr'
   const config = getReconciliationConfig(reconType)
-  const summary = data.summary || {
-    matched: 0,
-    mismatched: 0,
-    missingInGstr2b: 0,
-    missingInPr: 0,
-    totalItcAtRisk: 0,
-    totalInvoices: 0,
-    complianceScore: 100,
-  }
-
-  const suppliers = data.suppliers || []
-  const invoices = data.invoices || []
-  const summarySections = data.summarySections || []
-  const financialDiff = summary.financialDifference ?? summary.totalItcAtRisk ?? 0
+  
+  // For invoice-engine results, extract summary data
+  // For summary-engine results, use line items
+  const summary = !isSummary && data && 'summary' in data ? (data as ReconciliationResult).summary : { matched: 0, mismatched: 0, missingInGstr2b: 0, missingInPr: 0, totalItcAtRisk: 0, totalInvoices: 0, complianceScore: 0, financialDifference: 0, reconType: 'gstr2b_pr', matchAccuracy: 0, totalRecoveredOrValid: 0 } as any
+  const suppliers = !isSummary && data && 'suppliers' in data ? (data as ReconciliationResult).suppliers : []
+  const invoices = !isSummary && data && 'invoices' in data ? (data as ReconciliationResult).invoices : []
+  const summarySections = !isSummary && data && 'summarySections' in data ? (data as ReconciliationResult).summarySections : []
+  
+  const financialDiff = summary 
+    ? ((summary as any).financialDifference ?? summary.totalItcAtRisk ?? 0)
+    : 0
 
   const handleDownloadExcel = async () => {
     setDownloadingExcel(true)
     try {
-      await downloadExcel(data.id, `${config.id}_${data.period.replace(/\s+/g, '_')}_Report.xlsx`)
+      await downloadExcel(data.id)
     } catch (e) {
       alert('Failed to download Excel report')
     } finally {
@@ -130,7 +129,7 @@ export default function ResultsPage() {
   const handleDownloadPDF = async () => {
     setDownloadingPDF(true)
     try {
-      await downloadPDF(data.id, `${config.id}_${data.period.replace(/\s+/g, '_')}_Summary.pdf`)
+      await downloadPDF(data.id)
     } catch (e) {
       alert('Failed to download PDF summary')
     } finally {
@@ -311,7 +310,7 @@ export default function ResultsPage() {
         </div>
 
         {/* 1. If Summary-Level Reconciliation (3B vs 1, 9 vs Books, 9C vs Books) */}
-        {config.level === 'summary' && summarySections.length > 0 && (
+        {config.level === 'summary' && (summarySections || []).length > 0 && (
           <div
             style={{
               borderRadius: '16px',
@@ -341,7 +340,7 @@ export default function ResultsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {summarySections.map((sec, idx) => (
+                  {(summarySections || []).map((sec, idx) => (
                     <tr key={idx} style={{ borderBottom: '1px solid rgba(200,208,231,0.4)', background: idx % 2 === 0 ? 'rgba(255,255,255,0.4)' : 'transparent' }}>
                       <td style={{ padding: '10px 12px', fontWeight: 700, color: '#1e293b' }}>
                         {sec.sectionId}

@@ -276,7 +276,7 @@ export default function DashboardPage() {
               ₹{stats.totalRecovered.toLocaleString('en-IN')}
             </div>
             <div style={{ fontSize: '12px', fontWeight: 700, color: '#10b981' }}>
-              {stats.totalReconns > 0 && '+₹86,420 vs last month'}
+              {stats.totalRecons > 0 && '+₹86,420 vs last month'}
             </div>
           </div>
 

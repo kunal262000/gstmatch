@@ -29,6 +29,21 @@ export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<SidebarTab>('overview')
   const [recentReports, setRecentReports] = useState<ReportHistoryItem[]>([])
   const [generatingReport, setGeneratingReport] = useState<string | null>(null)
+  const [rows, setRows] = useState<any[]>([])
+
+  useEffect(() => {
+    // Fetch reconciliation results for KPI cards
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (user) {
+        const { data } = await supabase
+          .from('reconciliation_results')
+          .select('id, period, gstin, created_at, data')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+        if (data) setRows(data)
+      }
+    })
+  }, [])
 
   useEffect(() => {
     // Load recent reports from Supabase reconciliation results

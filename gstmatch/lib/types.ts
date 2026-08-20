@@ -101,6 +101,7 @@ export interface ReconciliationSummary {
   totalItcAtRisk: number   // rupees
   financialDifference: number   // total financial impact (incl. value mismatches)
   totalRecoveredOrValid: number   // total ITC recovered / claimed
+  reconType: string   // reconciliation type
   totalInvoices: number
   complianceScore: number   // 0–100
 }
@@ -114,6 +115,8 @@ export interface ReconciliationResult {
   summary: ReconciliationSummary
   suppliers: Supplier[]
   invoices: InvoiceRow[]
+  // Legacy field for summary-level reconciliations (GSTR-3B vs GSTR-1, etc.)
+  summarySections: any[] | null
   // NEW — defaulted server-side, so this is always present in real responses
   reconType: string
   engine: 'invoice'
