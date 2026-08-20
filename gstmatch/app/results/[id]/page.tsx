@@ -112,7 +112,7 @@ export default function ResultsPage() {
   const summarySections = !isSummary && data && 'summarySections' in data ? (data as ReconciliationResult).summarySections : []
   
   const financialDiff = summary 
-    ? ((summary as any).financialDifference ?? summary.totalItcAtRisk ?? 0)
+    ? summary.totalItcAtRisk ?? (summary as any).financialDifference ?? 0
     : 0
 
   const handleDownloadExcel = async () => {
