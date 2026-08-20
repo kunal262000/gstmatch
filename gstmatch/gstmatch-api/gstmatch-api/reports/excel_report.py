@@ -151,6 +151,47 @@ def _build_mismatch_sheet(ws, result: ReconciliationResult) -> None:
     _set_col_widths(ws, [24, 18, 16, 13, 20, 20, 16, 26])
 
 
+def _build_missing_invoices_sheet(ws, result: ReconciliationResult) -> None:
+    ws.title = "Missing Invoices"
+    ws.sheet_view.showGridLines = False
+    meta = get_recon_metadata(result.reconType or "gstr2b_pr")
+
+    missing_gstr2b = [inv for inv in result.invoices if inv.category == InvoiceCategory.missing_in_gstr2b]
+    missing_pr = [inv for inv in result.invoices if inv.category == InvoiceCategory.missing_in_pr]
+
+    if not missing_gstr2b and not missing_pr:
+        ws.merge_cells("A1:H1")
+        ws["A1"] = "No missing invoices found"
+        ws["A1"].font = Font(color="64748b", size=12, italic=True)
+        _set_col_widths(ws, [24, 18, 16, 13, 20, 20, 16, 26])
+        return
+
+    all_missing = missing_gstr2b + missing_pr
+    headers = ["Supplier", "GSTIN", "Invoice No", "Date",
+               f"{meta['file1_label']} Amount (₹)", f"{meta['file2_label']} Amount (₹)",
+               "Tax Component (₹)", "Category"]
+    _header_row(ws, headers)
+
+    all_filled = 0
+    for i, inv in enumerate(all_missing):
+        row = i + 2
+        fill = ORANGE_FILL if i % 2 == 0 else PatternFill("solid", fgColor="FFFBEB")
+        tax1 = float(inv.igst or 0) + float(inv.cgst or 0) + float(inv.sgst or 0)
+
+        ws.cell(row=row, column=1, value=inv.supplierName).border = THIN_BORDER
+        ws.cell(row=row, column=2, value=inv.gstin).border = THIN_BORDER
+        ws.cell(row=row, column=3, value=inv.invoiceNo).border = THIN_BORDER
+        ws.cell(row=row, column=4, value=inv.invoiceDate).border = THIN_BORDER
+        ws.cell(row=row, column=5, value=inv.yourAmount).border = THIN_BORDER
+        ws.cell(row=row, column=6, value=inv.gstr2bAmount or 0).border = THIN_BORDER
+        ws.cell(row=row, column=7, value=round(tax1, 2)).border = THIN_BORDER
+        cat_label = "Missing in GSTR-2B" if inv.category == InvoiceCategory.missing_in_gstr2b else "Missing in Purchase Register"
+        ws.cell(row=row, column=8, value=cat_label).border = THIN_BORDER
+        all_filled += 1
+
+    _set_col_widths(ws, [24, 18, 16, 13, 20, 20, 16, 26])
+
+
 def generate_excel_report(result: ReconciliationResult) -> bytes:
     wb = Workbook()
     ws_summary = wb.active
@@ -158,6 +199,9 @@ def generate_excel_report(result: ReconciliationResult) -> bytes:
 
     ws_mismatch = wb.create_sheet("Mismatches")
     _build_mismatch_sheet(ws_mismatch, result)
+
+    ws_missing = wb.create_sheet("Missing Invoices")
+    _build_missing_invoices_sheet(ws_missing, result)
 
     buf = io.BytesIO()
     wb.save(buf)
