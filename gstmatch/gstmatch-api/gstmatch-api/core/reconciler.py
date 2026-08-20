@@ -51,6 +51,18 @@ def _get_state_info(gstin: str) -> Tuple[str, str]:
     return code, name
 
 
+def extract_gstin_state_code(gstin: str) -> str:
+    """Extract 2-digit state code from GSTIN."""
+    code, _ = _get_state_info(gstin)
+    return code
+
+
+def get_gstin_state_name(gstin: str) -> str:
+    """Get state name from GSTIN."""
+    _, name = _get_state_info(gstin)
+    return name
+
+
 # ─── Universal Invoice-Level Matching Routine ─────────────────────────────────
 def reconcile_invoice_datasets(
     df1: pd.DataFrame,
@@ -88,6 +100,12 @@ def reconcile_invoice_datasets(
     missing_in_df2_count = 0
     total_financial_diff = 0.0
     total_recovered = 0.0
+    # ITC at risk must be based on the TAX component (IGST+CGST+SGST), never the
+    # total invoice value (which also includes taxable value). Track it separately
+    # and per-party so suppliers aggregate the correct figure.
+    total_itc_at_risk = 0.0
+    total_financial_diff = 0.0  # also accumulate financial diff for invoice-level
+    itc_by_party: Dict[str, float] = {}
 
     issue_breakdown = {
         "missingInFile2": 0,
@@ -132,6 +150,10 @@ def reconcile_invoice_datasets(
             diff = round(abs(amt1 - amt2), 2)
             is_matched = diff <= 1.0  # ₹1 rounding tolerance
 
+            # Tax / ITC component of each side (NOT the total invoice value).
+            tax1 = float(r1.get("igst", 0.0)) + float(r1.get("cgst", 0.0)) + float(r1.get("sgst", 0.0))
+            tax2 = float(r2.get("igst", 0.0)) + float(r2.get("cgst", 0.0)) + float(r2.get("sgst", 0.0))
+
             # IMS special action check
             action_status = str(r1.get("action_status", "Accepted"))
             if recon_type == "ims_gstr2b" and action_status.lower() in ["rejected", "pending"]:
@@ -139,19 +161,26 @@ def reconcile_invoice_datasets(
                 mismatch_count += 1
                 issue_breakdown["imsRejectedPending"] += 1
                 total_financial_diff += amt1
+                itc_risk = round(abs(tax1 - tax2), 2)
             elif is_matched:
                 category = InvoiceCategory.matched
                 matched_count += 1
                 total_recovered += amt1
+                itc_risk = 0.0
             else:
                 category = InvoiceCategory.mismatched
                 mismatch_count += 1
                 issue_breakdown["valueMismatch"] += 1
                 total_financial_diff += diff
+                itc_risk = round(abs(tax1 - tax2), 2)
+
+            total_itc_at_risk += itc_risk
+            p_gst_key = str(r1["gstin"]).upper()
+            itc_by_party[p_gst_key] = itc_by_party.get(p_gst_key, 0.0) + itc_risk
 
             invoices.append(InvoiceRow(
                 supplierName=str(r1.get("supplier_name") or r2.get("supplier_name") or "Party"),
-                gstin=str(r1["gstin"]).upper(),
+                gstin=p_gst_key,
                 invoiceNo=str(r1["invoice_no"]),
                 invoiceDate=normalize_date(r1.get("invoice_date", "")),
                 yourAmount=amt1,
@@ -168,13 +197,20 @@ def reconcile_invoice_datasets(
             amt1 = r1["norm_amt"]
             missing_in_df2_count += 1
             total_financial_diff += amt1
+            # ITC at risk for an invoice not reported in the return = its TAX
+            # component only (IGST+CGST+SGST), NOT the total invoice value.
+            tax1 = float(r1.get("igst", 0.0)) + float(r1.get("cgst", 0.0)) + float(r1.get("sgst", 0.0))
+            itc_risk = round(tax1, 2)
+            total_itc_at_risk += itc_risk
+            p_gst_key = str(r1["gstin"]).upper()
+            itc_by_party[p_gst_key] = itc_by_party.get(p_gst_key, 0.0) + itc_risk
             issue_breakdown["missingInFile2"] += 1
             if recon_type == "gstr2a_gstr2b":
                 issue_breakdown["timingCutoffMismatch"] += 1
 
             invoices.append(InvoiceRow(
                 supplierName=str(r1.get("supplier_name", "Party")),
-                gstin=str(r1["gstin"]).upper(),
+                gstin=p_gst_key,
                 invoiceNo=str(r1["invoice_no"]),
                 invoiceDate=normalize_date(r1.get("invoice_date", "")),
                 yourAmount=amt1,
@@ -232,10 +268,8 @@ def reconcile_invoice_datasets(
             p["matchedCount"] += 1
         elif inv.category == InvoiceCategory.mismatched:
             p["mismatchedCount"] += 1
-            p["itcAtRisk"] += (inv.difference or 0.0)
         elif inv.category == InvoiceCategory.missing_in_gstr2b:
             p["missingCount"] += 1
-            p["itcAtRisk"] += inv.yourAmount
 
     parties: List[Supplier] = []
     for p in parties_dict.values():
@@ -246,15 +280,16 @@ def reconcile_invoice_datasets(
         else:
             status = SupplierStatus.filed
 
+        party_itc = round(itc_by_party.get(p_gst, 0.0), 2)
         parties.append(Supplier(
             name=p["name"],
             gstin=p["gstin"],
             invoiceCount=p["invoiceCount"],
             status=status,
-            itcAtRisk=round(p["itcAtRisk"], 2),
+            itcAtRisk=party_itc,
             stateCode=p["stateCode"],
             stateName=p["stateName"],
-            financialVariance=round(p["itcAtRisk"], 2),
+            financialVariance=party_itc,
         ))
 
     total_invoices = len(invoices)
@@ -266,7 +301,7 @@ def reconcile_invoice_datasets(
         mismatched=mismatch_count,
         missingInGstr2b=missing_in_df2_count,
         missingInPr=missing_in_df1_count,
-        totalItcAtRisk=round(total_financial_diff, 2),
+        totalItcAtRisk=round(total_itc_at_risk, 2),
         totalInvoices=total_invoices,
         complianceScore=compliance_score,
         financialDifference=round(total_financial_diff, 2),
