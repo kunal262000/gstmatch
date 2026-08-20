@@ -29,6 +29,7 @@ export default function DashboardPage() {
   const [plan, setPlan] = useState('growth')
   const [planStatus, setPlanStatus] = useState<PlanStatus | null>(null)
   const [reconCount, setReconCount] = useState(0)
+  const [statsCalculated, setStatsCalculated] = useState(false)
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState('')
