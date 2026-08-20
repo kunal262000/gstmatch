@@ -99,6 +99,7 @@ export interface ReconciliationSummary {
   missingInGstr2b: number
   missingInPr: number
   totalItcAtRisk: number   // rupees
+  financialDifference: number   // total financial impact (incl. value mismatches)
   totalInvoices: number
   complianceScore: number   // 0–100
 }
