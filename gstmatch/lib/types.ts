@@ -100,6 +100,7 @@ export interface ReconciliationSummary {
   missingInPr: number
   totalItcAtRisk: number   // rupees
   financialDifference: number   // total financial impact (incl. value mismatches)
+  totalRecoveredOrValid: number   // total ITC recovered / claimed
   totalInvoices: number
   complianceScore: number   // 0–100
 }
