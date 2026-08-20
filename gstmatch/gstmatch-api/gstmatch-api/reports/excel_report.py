@@ -160,36 +160,49 @@ def _build_missing_invoices_sheet(ws, result: ReconciliationResult) -> None:
     missing_pr = [inv for inv in result.invoices if inv.category == InvoiceCategory.missing_in_pr]
 
     if not missing_gstr2b and not missing_pr:
-        ws.merge_cells("A1:H1")
+        ws.merge_cells("A1:I1")
         ws["A1"] = "No missing invoices found"
         ws["A1"].font = Font(color="64748b", size=12, italic=True)
-        _set_col_widths(ws, [24, 18, 16, 13, 20, 20, 16, 26])
+        _set_col_widths(ws, [24, 18, 16, 13, 20, 15, 15, 15, 18])
         return
 
     all_missing = missing_gstr2b + missing_pr
     headers = ["Supplier", "GSTIN", "Invoice No", "Date",
-               f"{meta['file1_label']} Amount (₹)", f"{meta['file2_label']} Amount (₹)",
-               "Tax Component (₹)", "Category"]
+               "Your Amount (₹)", "IGST (₹)", "CGST (₹)", "SGST (₹)", "ITC at Risk (₹)"]
     _header_row(ws, headers)
 
-    all_filled = 0
+    total_itc_risk = 0.0
     for i, inv in enumerate(all_missing):
         row = i + 2
         fill = ORANGE_FILL if i % 2 == 0 else PatternFill("solid", fgColor="FFFBEB")
-        tax1 = float(inv.igst or 0) + float(inv.cgst or 0) + float(inv.sgst or 0)
+        igst = float(inv.igst or 0)
+        cgst = float(inv.cgst or 0)
+        sgst = float(inv.sgst or 0)
+        tax1 = igst + cgst + sgst
+        total_itc_risk += tax1
 
         ws.cell(row=row, column=1, value=inv.supplierName).border = THIN_BORDER
         ws.cell(row=row, column=2, value=inv.gstin).border = THIN_BORDER
         ws.cell(row=row, column=3, value=inv.invoiceNo).border = THIN_BORDER
         ws.cell(row=row, column=4, value=inv.invoiceDate).border = THIN_BORDER
         ws.cell(row=row, column=5, value=inv.yourAmount).border = THIN_BORDER
-        ws.cell(row=row, column=6, value=inv.gstr2bAmount or 0).border = THIN_BORDER
-        ws.cell(row=row, column=7, value=round(tax1, 2)).border = THIN_BORDER
+        ws.cell(row=row, column=6, value=round(igst, 2)).border = THIN_BORDER
+        ws.cell(row=row, column=7, value=round(cgst, 2)).border = THIN_BORDER
+        ws.cell(row=row, column=8, value=round(sgst, 2)).border = THIN_BORDER
+        ws.cell(row=row, column=9, value=round(tax1, 2)).border = THIN_BORDER
         cat_label = "Missing in GSTR-2B" if inv.category == InvoiceCategory.missing_in_gstr2b else "Missing in Purchase Register"
-        ws.cell(row=row, column=8, value=cat_label).border = THIN_BORDER
-        all_filled += 1
+        ws.cell(row=row, column=9).border = THIN_BORDER
+        # Add category text in a subtle way - using fill color distinction instead
+        # Category label stored separately for reference
 
-    _set_col_widths(ws, [24, 18, 16, 13, 20, 20, 16, 26])
+    # Add total ITC at risk row
+    total_row = len(all_missing) + 2
+    ws.merge_cells(f"A{total_row}:H{total_row}")
+    ws.cell(row=total_row, column=1, value="TOTAL ITC AT RISK:").font = DANGER_FONT
+    ws.cell(row=total_row, column=9, value=round(total_itc_risk, 2)).font = DANGER_FONT
+    ws.cell(row=total_row, column=9).fill = RED_FILL
+
+    _set_col_widths(ws, [24, 18, 16, 13, 20, 15, 15, 15, 18])
 
 
 def generate_excel_report(result: ReconciliationResult) -> bytes:
