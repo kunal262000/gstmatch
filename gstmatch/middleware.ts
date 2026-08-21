@@ -37,6 +37,24 @@ export async function middleware(request: NextRequest) {
     },
   })
 
+  const path = request.nextUrl.pathname
+
+  // ── Bypass middleware for Next.js metadata routes ─────────────────────
+  // These MUST NOT be intercepted by middleware — otherwise Supabase SSR
+  // attaches Set-Cookie headers to the response and Googlebot / GSC fails
+  // to fetch /sitemap.xml and /robots.txt. Matched out by the `matcher`
+  // below too, but the early-return here is a defence-in-depth guarantee.
+  if (
+    path === '/sitemap.xml' ||
+    path === '/robots.txt' ||
+    path === '/feed.xml' ||
+    path.endsWith('/sitemap.xml') ||
+    path.endsWith('/robots.txt') ||
+    path.endsWith('/feed.xml')
+  ) {
+    return response
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
@@ -68,7 +86,6 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const path = request.nextUrl.pathname
   const isProtectedRoute = path.startsWith('/upload') || path.startsWith('/results') || path.startsWith('/dashboard')
   const isDemo = path === '/results/demo'
   const isAuthRoute = path === '/auth'
@@ -121,8 +138,12 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - sitemap.xml / robots.txt / feed.xml — Next.js metadata routes
+     *   that must NOT be intercepted by middleware (otherwise Googlebot
+     *   gets Supabase Set-Cookie headers attached and GSC fails to
+     *   fetch the sitemap).
      * - Images/SVG files in public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|sitemap\\.xml|robots\\.txt|feed\\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 }
