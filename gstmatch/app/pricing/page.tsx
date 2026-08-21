@@ -60,10 +60,24 @@ export default function PricingPage() {
     setLoadingPlan(tierId)
 
     try {
-      const res = await fetch('/api/cashfree/create-order', {
+      // FIX: was calling '/api/cashfree/create-order', which does not
+      // exist — the real, implemented route is '/api/cashfree/session'.
+      // Hitting a nonexistent route returned Next.js's default 404 HTML
+      // page, and res.json() on that HTML produced the
+      // "expected token '<'" parse error. Also fixed the request body
+      // field names (email/userId/plan/phone, matching what the backend
+      // route actually reads) and the response field names
+      // (payment_session_id/order_id snake_case, matching what the
+      // backend actually returns).
+      const res = await fetch('/api/cashfree/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tier: tierId }),
+        body: JSON.stringify({
+          email: user.email,
+          userId: user.id,
+          plan: tierId,
+          phone: user.phone || user.user_metadata?.phone || '',
+        }),
       })
 
       const data = await res.json()
@@ -71,11 +85,32 @@ export default function PricingPage() {
         throw new Error(data.error || 'Failed to initiate checkout order.')
       }
 
-      if (data.paymentSessionId) {
-        router.push(`/payment?sessionId=${data.paymentSessionId}&orderId=${data.orderId}`)
-      } else {
+      if (!data.payment_session_id) {
         throw new Error('Payment session missing. Please try again.')
       }
+
+      // FIX: previously redirected to '/payment?sessionId=...', a page
+      // that does not exist anywhere in the app. The Cashfree checkout
+      // widget (already installed as a dependency, already typed in
+      // types/cashfree.d.ts) was never actually opened anywhere in the
+      // codebase. This opens it directly here instead of relying on a
+      // separate page that was never built.
+      if (data.mock) {
+        // No real Cashfree credentials configured on the backend — skip
+        // the real widget and go straight to the result page, matching
+        // the existing return_url pattern, for local/dev testing.
+        router.push(`/payment/result?order_id=${data.order_id}`)
+        return
+      }
+
+      const { load } = await import('@cashfreepayments/cashfree-js')
+      const mode = (process.env.NEXT_PUBLIC_CASHFREE_MODE || 'production').toLowerCase()
+      const cashfree = await load({ mode: mode === 'sandbox' || mode === 'test' ? 'sandbox' : 'production' })
+
+      cashfree.checkout({
+        paymentSessionId: data.payment_session_id,
+        redirectTarget: '_self',
+      })
     } catch (err: any) {
       setError(err.message || 'Payment initiation error.')
       setLoadingPlan(null)
