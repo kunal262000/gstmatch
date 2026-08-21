@@ -94,13 +94,16 @@ def _build_summary_sheet(ws, result: ReconciliationResult) -> None:
             ws.cell(row=row, column=3, value=value).fill = fill
             ws.cell(row=row, column=2).font = BOLD_FONT
 
-    fin_diff = result.summary.financialDifference if result.summary.financialDifference is not None else (result.summary.totalItcAtRisk or 0.0)
+    # Use the ITC-at-risk figure (tax component of missing invoices) — matches
+    # the website banner (summary.totalItcAtRisk), NOT the full invoice value
+    # (financialDifference) which would hugely overstate the amount at risk.
+    itc_risk = result.summary.totalItcAtRisk if result.summary.totalItcAtRisk is not None else (result.summary.financialDifference or 0.0)
     itc_row = len(stats) + 6
     ws.merge_cells(f"A{itc_row}:D{itc_row}")
     itc_cell = ws[f"A{itc_row}"]
-    itc_cell.value     = f"{meta['financial_metric_label'].upper()}:  {_fmt_inr(fin_diff)}"
-    itc_cell.fill      = RED_FILL if fin_diff > 0 else GREEN_FILL
-    itc_cell.font      = Font(bold=True, size=13, color="EF4444" if fin_diff > 0 else "10B981")
+    itc_cell.value     = f"{meta['financial_metric_label'].upper()}:  {_fmt_inr(itc_risk)}"
+    itc_cell.fill      = RED_FILL if itc_risk > 0 else GREEN_FILL
+    itc_cell.font      = Font(bold=True, size=13, color="EF4444" if itc_risk > 0 else "10B981")
     itc_cell.alignment = CENTER
 
     _set_col_widths(ws, [4, 38, 18, 4])
@@ -156,17 +159,21 @@ def _build_missing_invoices_sheet(ws, result: ReconciliationResult) -> None:
     ws.sheet_view.showGridLines = False
     meta = get_recon_metadata(result.reconType or "gstr2b_pr")
 
+    # Only the at-risk invoices (in books but missing from GSTR-2B) contribute
+    # to ITC at risk. Invoices that appear in GSTR-2B but NOT in the books are
+    # "missing in purchase register" — they carry no ITC risk, so they are
+    # excluded here to keep this sheet's total consistent with the Summary and
+    # the website banner (summary.totalItcAtRisk).
     missing_gstr2b = [inv for inv in result.invoices if inv.category == InvoiceCategory.missing_in_gstr2b]
-    missing_pr = [inv for inv in result.invoices if inv.category == InvoiceCategory.missing_in_pr]
 
-    if not missing_gstr2b and not missing_pr:
+    if not missing_gstr2b:
         ws.merge_cells("A1:I1")
         ws["A1"] = "No missing invoices found"
         ws["A1"].font = Font(color="64748b", size=12, italic=True)
         _set_col_widths(ws, [24, 18, 16, 13, 20, 15, 15, 15, 18])
         return
 
-    all_missing = missing_gstr2b + missing_pr
+    all_missing = missing_gstr2b
     headers = ["Supplier", "GSTIN", "Invoice No", "Date",
                "Your Amount (₹)", "IGST (₹)", "CGST (₹)", "SGST (₹)", "ITC at Risk (₹)"]
     _header_row(ws, headers)
@@ -190,10 +197,7 @@ def _build_missing_invoices_sheet(ws, result: ReconciliationResult) -> None:
         ws.cell(row=row, column=7, value=round(cgst, 2)).border = THIN_BORDER
         ws.cell(row=row, column=8, value=round(sgst, 2)).border = THIN_BORDER
         ws.cell(row=row, column=9, value=round(tax1, 2)).border = THIN_BORDER
-        cat_label = "Missing in GSTR-2B" if inv.category == InvoiceCategory.missing_in_gstr2b else "Missing in Purchase Register"
         ws.cell(row=row, column=9).border = THIN_BORDER
-        # Add category text in a subtle way - using fill color distinction instead
-        # Category label stored separately for reference
 
     # Add total ITC at risk row
     total_row = len(all_missing) + 2
