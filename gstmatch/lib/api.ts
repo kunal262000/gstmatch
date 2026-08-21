@@ -5,9 +5,8 @@
 // same session-refresh fallback. ONLY startReconciliation() changes:
 //   1. field names purchase_register/gstr2b → file1/file2 (matches the
 //      updated backend route)
-//   2. new optional reconType parameter, defaulting to 'gstr2b_vs_pr' so
-//      any existing call site that doesn't pass it keeps working exactly
-//      as before
+//   2. new optional reconType parameter, defaulting to 'gstr2b_pr' — the
+//      canonical short-form id used everywhere else in the app
 //
 // getResult() return type is now a union — check `.engine` on the result
 // to know whether you got a ReconciliationResult or a
@@ -26,7 +25,7 @@ export async function startReconciliation(
   gstin: string,
   businessName: string,
   userId?: string,
-  reconType: string = 'gstr2b_vs_pr'   // NEW — defaults to original type
+  reconType: string = 'gstr2b_pr'  // canonical short-form id
 ): Promise<UploadResponse> {
   const form = new FormData()
   form.append('file1', file1)

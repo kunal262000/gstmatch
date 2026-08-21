@@ -22,21 +22,26 @@ from enum import Enum
 
 
 # ── NEW ──
+# ReconType: short-form ids are now canonical (matching lib/reconciliation-registry.ts
+# used by the homepage/nav/dashboard/pricing/results/admin pages). Long-form "_vs_"
+# ids are kept as valid alternate members so any already-stored Supabase rows or
+# in-flight requests using the old scheme still parse successfully — see
+# core/recon_registry.py's LEGACY_ALIASES for where the lookup normalization happens.
 class ReconType(str, Enum):
-    gstr2b_vs_pr             = "gstr2b_vs_pr"
-    gstr2b_pr                = "gstr2b_pr"  # legacy alias
-    gstr2a_vs_gstr2b         = "gstr2a_vs_gstr2b"
-    gstr2a_gstr2b            = "gstr2a_gstr2b"  # legacy alias
-    gstr1_vs_sales_register  = "gstr1_vs_sales_register"
-    gstr1_sales_register     = "gstr1_sales_register"  # legacy alias
-    ims_vs_gstr2b            = "ims_vs_gstr2b"
-    ims_gstr2b               = "ims_gstr2b"  # legacy alias
-    gstr3b_vs_gstr1          = "gstr3b_vs_gstr1"
-    gstr3b_gstr1             = "gstr3b_gstr1"  # legacy alias
-    gstr9_vs_books           = "gstr9_vs_books"
-    gstr9_books              = "gstr9_books"  # legacy alias
-    gstr9c_vs_books          = "gstr9c_vs_books"
-    gstr9c_books             = "gstr9c_books"  # legacy alias
+    gstr2b_pr                = "gstr2b_pr"
+    gstr2b_vs_pr             = "gstr2b_vs_pr"  # legacy alias
+    gstr2a_gstr2b            = "gstr2a_gstr2b"
+    gstr2a_vs_gstr2b         = "gstr2a_vs_gstr2b"  # legacy alias
+    gstr1_sales_register     = "gstr1_sales_register"
+    gstr1_vs_sales_register  = "gstr1_vs_sales_register"  # legacy alias
+    ims_gstr2b               = "ims_gstr2b"
+    ims_vs_gstr2b            = "ims_vs_gstr2b"  # legacy alias
+    gstr3b_gstr1             = "gstr3b_gstr1"
+    gstr3b_vs_gstr1          = "gstr3b_vs_gstr1"  # legacy alias
+    gstr9_books              = "gstr9_books"
+    gstr9_vs_books           = "gstr9_vs_books"  # legacy alias
+    gstr9c_books             = "gstr9c_books"
+    gstr9c_vs_books          = "gstr9c_vs_books"  # legacy alias
 
 
 class InvoiceCategory(str, Enum):
@@ -119,7 +124,7 @@ class ReconciliationResult(BaseModel):
     invoices:     List[InvoiceRow]
     # NEW — defaulted so every existing row already in Supabase, and every
     # existing code path that builds this model, keeps working unchanged.
-    reconType:    ReconType = ReconType.gstr2b_vs_pr
+    reconType:    ReconType = ReconType.gstr2b_pr
     engine:       str       = "invoice"
     # Legacy field for summary-level reconciliations (GSTR-3B vs GSTR-1, etc.)
     summarySections: Optional[List[SummarySectionRow]] = None
@@ -174,7 +179,7 @@ class ReconTypeInfo(BaseModel):
 class UploadResponse(BaseModel):
     jobId:      str
     message:    str
-    reconType:  ReconType = ReconType.gstr2b_vs_pr   # NEW, defaulted
+    reconType:  ReconType = ReconType.gstr2b_pr   # NEW, defaulted
     engine:     str       = "invoice"                 # NEW, defaulted
 
 

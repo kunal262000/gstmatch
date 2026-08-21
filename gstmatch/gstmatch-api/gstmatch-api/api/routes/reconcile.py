@@ -18,7 +18,7 @@ import os
 import uuid
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 
-from core.recon_registry import get_recon_type
+from core.recon_registry import get_recon_type, normalize_recon_type_id
 from core.reconciler import reconcile as reconcile_gstr2b_vs_pr
 from core.invoice_reconciler import reconcile_invoices
 from core.summary_reconciler import reconcile_summary
@@ -40,7 +40,7 @@ async def start_reconciliation(
     gstin:         str        = Form(..., description="Your 15-character GSTIN"),
     business_name: str        = Form("", description="Your business name"),
     user_id:       str        = Form("", description="Logged-in user id (optional)"),
-    recon_type:    str        = Form("gstr2b_vs_pr", description="Which reconciliation type to run"),
+    recon_type:    str        = Form("gstr2b_pr", description="Which reconciliation type to run"),
 ):
     # ── Enforce free-tier limit BEFORE doing any heavy work ──────────────────
     # UNCHANGED logic — count_for_user() now sums across invoice + summary
@@ -60,6 +60,7 @@ async def start_reconciliation(
                 )
 
     # ── Resolve reconciliation type ─────────────────────────────────────────
+    recon_type = normalize_recon_type_id(recon_type)
     try:
         config = get_recon_type(recon_type)
     except ValueError:
@@ -94,7 +95,7 @@ async def start_reconciliation(
     gstin_clean = gstin.upper().strip()
     biz_name    = business_name or "My Business"
 
-    if recon_type == "gstr2b_vs_pr":
+    if config.id == "gstr2b_pr":
         # Original type — routed through the ORIGINAL, untouched
         # core/reconciler.py exactly as it has always run. Zero behavioural
         # change for existing users.

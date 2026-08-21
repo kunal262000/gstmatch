@@ -1,31 +1,24 @@
 'use client'
 
-// MODIFIED FILE — replaces: gstmatch/app/upload/page.tsx
+// app/upload/page.tsx
 //
-// Every existing behaviour is UNCHANGED: auth redirect, fetchPlanStatus(),
-// the free-trial usage banner, limitReached/planExpired states, GSTIN
-// validation, the increment_usage_count RPC call, the user_activity
-// logging insert, TrustBadges, the format-guide table.
+// ⚠️ FIX: this page previously imported getReconType() from
+// lib/reconTypes.ts — a second, disconnected registry using long-form ids
+// ("gstr2b_vs_pr" etc). EVERY other page in the app (homepage, nav,
+// dashboard, pricing, results, admin) links to /upload?type=xxx using
+// SHORT-form ids from lib/reconciliation-registry.ts ("gstr2b_pr" etc).
+// getReconType() threw on any id it didn't recognise, which meant
+// clicking almost any reconciliation card ANYWHERE in the app crashed
+// this page. Fixed by switching to the same canonical registry
+// (getReconciliationConfig(), which never throws — it falls back to
+// gstr2b_pr on an unrecognised id instead). lib/reconTypes.ts has been
+// deleted; this is now the only registry in use.
 //
-// ONLY CHANGES:
-//   1. Added <ReconTypeSelector> above the period/GSTIN row
-//   2. file1/file2 replace prFile/gstrFile (generic naming — matches the
-//      updated backend route), upload zone labels/hints are now dynamic
-//      based on the selected reconciliation type instead of hardcoded
-//      "Purchase Register" / "GSTR-2B File"
-//   3. The reconCount usage query now sums BOTH
-//      reconciliation_results AND summary_reconciliation_results tables —
-//      this matches the free-tier fix in storage/job_store.py's
-//      count_for_user(). Without this, the free-trial banner in the UI
-//      would show a stale/wrong count for users who've run summary-engine
-//      reconciliations (GSTR-3B vs GSTR-1, etc).
-//   4. startReconciliation() now passes reconType
-//   5. The format-guide table at the bottom only renders for invoice-engine
-//      types (it describes invoice-level columns, which don't apply to the
-//      4 summary-engine types)
-//   6. Reads ?type= from the URL so links like /upload?type=gstr2a_vs_gstr2b
-//      pre-select the right type — wrapped in <Suspense> since useSearchParams
-//      requires it in the Next.js App Router
+// Every other existing behaviour is unchanged: auth redirect,
+// fetchPlanStatus(), the free-trial usage banner, limitReached/
+// planExpired states, GSTIN validation, the increment_usage_count RPC
+// call, the user_activity logging insert, TrustBadges, the format-guide
+// table, the reconCount query summing both result tables.
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -35,7 +28,7 @@ import NeuButton from '@/components/ui/NeuButton'
 import TrustBadges from '@/components/TrustBadges'
 import ViewTransitionLink from '@/components/ViewTransitionLink'
 import ReconTypeSelector from '@/components/ReconTypeSelector'
-import { getReconType } from '@/lib/reconTypes'
+import { getReconciliationConfig } from '@/lib/reconciliation-registry'
 import { startReconciliation } from '@/lib/api'
 import { supabase } from '@/lib/supabase'
 import { fetchPlanStatus, FREE_RECON_LIMIT } from '@/lib/pricing'
@@ -50,7 +43,7 @@ const YEARS = [currentYear, currentYear - 1]
 function UploadPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const initialType = searchParams.get('type') || 'gstr2b_vs_pr'
+  const initialType = searchParams.get('type') || 'gstr2b_pr'
 
   const [reconType, setReconType] = useState(initialType)
   const [file1, setFile1] = useState<File | null>(null)
@@ -67,7 +60,10 @@ function UploadPageInner() {
   const [plan, setPlan] = useState('free')
   const [planExpired, setPlanExpired] = useState(false)
 
-  const config = getReconType(reconType)
+  // getReconciliationConfig() never throws — falls back to gstr2b_pr for
+  // any unrecognised id, so a stale/bad ?type= param degrades gracefully
+  // instead of crashing the page.
+  const config = getReconciliationConfig(reconType)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -82,7 +78,7 @@ function UploadPageInner() {
         setPlanExpired(status.plan !== 'free' && !status.active)
 
         if (status.effectivePlan === 'free') {
-          // NEW — count spans BOTH result tables (invoice + summary engine),
+          // Count spans BOTH result tables (invoice + summary engine),
           // matching the fix in storage/job_store.py's count_for_user().
           // A free user has FREE_RECON_LIMIT total reconciliations across
           // all 8 reconciliation types combined, not per-type.
@@ -131,15 +127,13 @@ function UploadPageInner() {
       setReconCount(c => c + 1)
 
       // Increment usage_count in users table for admin dashboard stats
-      // (UNCHANGED)
       if (userId) {
         Promise.resolve().then(() =>
           supabase.rpc('increment_usage_count', { user_id: userId })
         ).catch((e: any) => console.warn('Failed to increment usage count:', e))
       }
 
-      // Log the reconciliation for the Admin activity dashboard (best-effort).
-      // UNCHANGED, plus reconType in the detail payload for the admin view.
+      // Log the reconciliation for the Admin activity dashboard (best-effort)
       if (userId) {
         const { data: { user } } = await supabase.auth.getUser()
         Promise.resolve().then(() =>
@@ -174,7 +168,7 @@ function UploadPageInner() {
           </p>
         </div>
 
-        {/* Free trial usage banner — UNCHANGED */}
+        {/* Free trial usage banner */}
         {userId && plan === 'free' && !limitReached && !planExpired && (
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -216,12 +210,12 @@ function UploadPageInner() {
           </div>
         )}
 
-        {/* NEW — Reconciliation type selector */}
+        {/* Reconciliation type selector */}
         <div style={{ marginBottom: 24 }}>
           <ReconTypeSelector selected={reconType} onSelect={handleTypeChange} />
         </div>
 
-        {/* Period + GSTIN — UNCHANGED */}
+        {/* Period + GSTIN */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px,1fr))', gap: 14, marginBottom: 20 }}>
           <div>
             <div style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600, marginBottom: 6 }}>Period</div>
@@ -256,29 +250,30 @@ function UploadPageInner() {
           </div>
         </div>
 
-        {/* Upload zones — labels/hints now dynamic based on reconType */}
+        {/* Upload zones — labels/hints/accepted extensions dynamic based on
+            the selected reconciliation type's file config */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px,1fr))', gap: 16, marginBottom: 20 }}>
           <UploadZone
-            label={config.file1Label}
-            sublabel={`Drop your ${config.file1Label} here`}
+            label={config.file1.shortName}
+            sublabel={`Drop your ${config.file1.shortName} here`}
             icon="📊"
-            accept=".xlsx,.xls,.csv,.json"
+            accept={config.file1.acceptMimeTypes}
             file={file1}
             onChange={setFile1}
-            hint={config.file1Hint}
+            hint={config.file1.sampleHint}
           />
           <UploadZone
-            label={config.file2Label}
-            sublabel={`Drop your ${config.file2Label} here`}
+            label={config.file2.shortName}
+            sublabel={`Drop your ${config.file2.shortName} here`}
             icon="🏛️"
-            accept=".xlsx,.xls,.csv,.json"
+            accept={config.file2.acceptMimeTypes}
             file={file2}
             onChange={setFile2}
-            hint={config.file2Hint}
+            hint={config.file2.sampleHint}
           />
         </div>
 
-        {/* Error — UNCHANGED */}
+        {/* Error */}
         {error && (
           <div style={{
             background: 'var(--danger-bg)', color: 'var(--danger)',
@@ -288,7 +283,7 @@ function UploadPageInner() {
           </div>
         )}
 
-        {/* Run button / Upgrade CTA — UNCHANGED */}
+        {/* Run button / Upgrade CTA */}
         <div style={{ textAlign: 'center', paddingTop: 8 }}>
           {limitReached ? (
             <>
@@ -303,8 +298,8 @@ function UploadPageInner() {
             <>
               <NeuButton variant="primary" size="lg" disabled={!canRun || loading} onClick={handleRun}>
                 {loading ? '⏳ Processing your files…'
-               : canRun  ? '🔍 Run reconciliation →'
-               :           'Upload both files to continue'}
+                  : canRun ? '🔍 Run reconciliation →'
+                    : 'Upload both files to continue'}
               </NeuButton>
               {(gstin && !isValidGSTIN(gstin)) && (
                 <div style={{ fontSize: 12, color: 'var(--danger)', marginTop: 8, fontWeight: 500 }}>
@@ -319,16 +314,16 @@ function UploadPageInner() {
           )}
         </div>
 
-        {/* Format guide — only shown for invoice-engine types; the 4
-            summary-engine types (GSTR-3B vs GSTR-1 etc.) compare return
+        {/* Format guide — only shown for invoice-level types; the 4
+            summary-level types (GSTR-3B vs GSTR-1 etc.) compare return
             totals, not invoice-level columns, so this table doesn't apply */}
-        {config.engine === 'invoice' && (
+        {config.level === 'invoice' && (
           <div className="neu-raised" style={{ marginTop: 28, padding: '20px 22px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
               <span style={{ fontSize: 18 }}>📋</span>
               <div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>
-                  {config.file1Label} format
+                  {config.file1.shortName} format
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-3)' }}>
                   Your Excel/CSV should have columns like these — headers can be in any order, we auto-detect them.

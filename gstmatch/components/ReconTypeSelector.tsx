@@ -1,26 +1,40 @@
 'use client'
 
-// NEW FILE — place at: gstmatch/components/ReconTypeSelector.tsx
+// components/ReconTypeSelector.tsx
+//
+// FIX: this previously imported from lib/reconTypes.ts, a second,
+// disconnected registry using long-form ids ("gstr2b_vs_pr" etc). Every
+// other page in the app (homepage, nav, dashboard, pricing, results,
+// admin) uses lib/reconciliation-registry.ts with short-form ids
+// ("gstr2b_pr" etc). That mismatch meant this selector's cards produced
+// ids the Upload page's old getReconType() didn't recognise, crashing the
+// page. Now uses the same canonical registry as the rest of the app —
+// lib/reconTypes.ts has been removed.
 //
 // Uses the same .neu-raised/.neu-inset styling as the rest of the app
-// (matching UploadZone.tsx's visual language). Purely additive — doesn't
-// touch any existing component.
+// (matching UploadZone.tsx's visual language).
 
-import { RECON_TYPES, ReconTypeInfo } from '@/lib/reconTypes'
+import { RECONCILIATION_TYPES, ReconciliationConfig } from '@/lib/reconciliation-registry'
 
 interface ReconTypeSelectorProps {
   selected: string
   onSelect: (id: string) => void
 }
 
-const ICON_BG: Record<string, string> = {
-  '📄': '#dbeafe', '🔄': '#d1fae5', '🧾': '#fef3c7', '📋': '#fce7f3',
-  '🧮': '#ede9fe', '🔗': '#e0f2fe', '📚': '#dcfce7', '📊': '#fee2e2',
+// Same category → icon mapping used on the homepage (app/page.tsx) for
+// visual consistency between the two places these cards appear.
+const CATEGORY_ICON: Record<string, string> = {
+  itc: '📄', sales: '📊', returns: '📑', annual: '🏛️',
+}
+const CATEGORY_ICON_BG: Record<string, string> = {
+  itc: '#dbeafe', sales: '#fef3c7', returns: '#ede9fe', annual: '#dcfce7',
 }
 
 function TypeCard({
   type, active, onClick,
-}: { type: ReconTypeInfo; active: boolean; onClick: () => void }) {
+}: { type: ReconciliationConfig; active: boolean; onClick: () => void }) {
+  const icon = CATEGORY_ICON[type.category] || '📄'
+
   return (
     <div
       onClick={onClick}
@@ -44,24 +58,24 @@ function TypeCard({
         </div>
       )}
 
-      {type.badge && !active && (
+      {type.popular && !active && (
         <div style={{
           position: 'absolute', top: 12, right: 12,
           background: 'var(--primary-bg)', color: 'var(--primary-dark)',
           fontSize: 9, fontWeight: 700, padding: '2px 8px',
           borderRadius: 'var(--r-pill)', letterSpacing: '0.03em',
         }}>
-          {type.badge}
+          ★ POPULAR
         </div>
       )}
 
       <div style={{
         width: 40, height: 40, borderRadius: 10,
-        background: ICON_BG[type.icon] || 'var(--neu-bg)',
+        background: CATEGORY_ICON_BG[type.category] || 'var(--neu-bg)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 20, marginBottom: 12,
       }}>
-        {type.icon}
+        {icon}
       </div>
 
       <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)', marginBottom: 4 }}>
@@ -95,7 +109,7 @@ export default function ReconTypeSelector({ selected, onSelect }: ReconTypeSelec
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-        {RECON_TYPES.map(type => (
+        {Object.values(RECONCILIATION_TYPES).map(type => (
           <TypeCard
             key={type.id}
             type={type}
